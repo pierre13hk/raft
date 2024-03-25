@@ -2,13 +2,15 @@ package raft
 
 import (
 	"errors"
+	"fmt"
 )
+
 type Peer struct {
 	Id uint64
 }
 
 type RaftRPC interface {
-	RequestVoteRPC(peer Peer, ballot Ballot) (BallotResponse, error)
+	RequestVoteRPC(peer Peer, ballot Ballot, c chan BallotResponse) error
 	AppendEntriesRPC(peer Peer, req AppendEntriesRequest) (AppendEntriesResponse, error)
 }
 
@@ -22,16 +24,24 @@ func NewInMemoryRaftRPC() *InMemoryRaftRPC {
 	}
 }
 
-func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot) (BallotResponse, error) {
+func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot, c chan BallotResponse) error {
 	peer := r.peers[p.Id]
 	if peer == nil {
-		return BallotResponse{}, errors.New("Peer not found")
+		return errors.New("Peer not found")
 	}
 
 	// Simulate network latency
-	
+
+	defer func() {
+		if recover() != nil {
+			// we wrote to a closed channel
+			// the election is over.
+			fmt.Println("Wrote to closed channel. Election over.")
+		}
+	}()
 	resp := peer.RequestVote(ballot)
-	return resp, nil
+	c <- resp
+	return nil
 }
 
 func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (AppendEntriesResponse, error) {
@@ -41,8 +51,7 @@ func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (Ap
 	}
 
 	// Simulate network latency
-	
+
 	resp := peer.AppendEntries(req)
 	return resp, nil
 }
-
