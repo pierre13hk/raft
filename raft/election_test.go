@@ -1,0 +1,118 @@
+package raft
+
+import (
+	"testing"
+	"time"
+)
+
+func TestRequestVote(t *testing.T) {
+	node := NewNode(1)
+
+	node.StartElection()
+
+	b := Ballot{
+		Term:         0,
+		CandidateId:  2,
+		LastLogIndex: 0,
+		LastLogTerm:  0,
+	}
+
+	resp := node.RequestVote(b)
+	if resp.VoteGranted {
+		t.Errorf("Expected vote not granted")
+	}
+
+}
+
+func TestStartElection(t *testing.T) {
+	node1 := NewNode(1)
+	node2 := NewNode(2)
+	node3 := NewNode(3)
+	node4 := NewNode(4)
+	node5 := NewNode(5)
+
+	node1.Peers = []Peer{{Id: 2}, {Id: 3}, {Id: 4}, {Id: 5}}
+	node2.Peers = []Peer{{Id: 1}, {Id: 3}, {Id: 4}, {Id: 5}}
+	node3.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 4}, {Id: 5}}
+	node4.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 5}}
+	node5.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 4}}
+
+	rpc := NewInMemoryRaftRPC()
+	rpc.peers = map[uint64]*Node{
+		1: node1,
+		2: node2,
+		//3: node3,
+		//4: node4,
+		//5: node5,
+	}
+
+	node1.RaftRPC = rpc
+	node2.RaftRPC = rpc
+	node3.RaftRPC = rpc
+	node4.RaftRPC = rpc
+	node5.RaftRPC = rpc
+
+	go node1.StartElection()
+	time.Sleep(1 * time.Second)
+	if node1.role != Candidate {
+		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
+	}
+
+	rpc.peers = map[uint64]*Node{
+		1: node1,
+		2: node2,
+		3: node3,
+		4: node4,
+		5: node5,
+	}
+
+	go node1.StartElection()
+	time.Sleep(1 * time.Second)
+	if node1.role != Leader {
+		t.Errorf("Expected role to be Leader, was %s", node1.role.String())
+	}
+}
+
+func TestStartElectionRetry(t *testing.T) {
+	node1 := NewNode(1)
+	node2 := NewNode(2)
+	node3 := NewNode(3)
+	node4 := NewNode(4)
+	node5 := NewNode(5)
+
+	node1.Peers = []Peer{{Id: 2}, {Id: 3}, {Id: 4}, {Id: 5}}
+	node2.Peers = []Peer{{Id: 1}, {Id: 3}, {Id: 4}, {Id: 5}}
+	node3.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 4}, {Id: 5}}
+	node4.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 5}}
+	node5.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 4}}
+
+	rpc := NewInMemoryRaftRPC()
+	rpc.peers = map[uint64]*Node{
+		1: node1,
+		2: node2,
+		//3: node3,
+		//4: node4,
+		//5: node5,
+	}
+
+	node1.RaftRPC = rpc
+	node2.RaftRPC = rpc
+	node3.RaftRPC = rpc
+	node4.RaftRPC = rpc
+	node5.RaftRPC = rpc
+
+	go node1.StartElection()
+	time.Sleep(200 * time.Millisecond)
+	if node1.role != Candidate {
+		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
+	}
+
+	rpc.peers = map[uint64]*Node{
+		1: node1,
+		2: node2,
+		3: node3,
+		4: node4,
+		5: node5,
+	}
+
+}
