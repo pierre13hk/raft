@@ -38,7 +38,7 @@ func TestStartElection(t *testing.T) {
 	node5.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 4}}
 
 	rpc := NewInMemoryRaftRPC()
-	rpc.peers = map[uint64]*Node{
+	rpc.Peers = map[uint64]*Node{
 		1: node1,
 		2: node2,
 		//3: node3,
@@ -58,7 +58,7 @@ func TestStartElection(t *testing.T) {
 		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
 	}
 
-	rpc.peers = map[uint64]*Node{
+	rpc.Peers = map[uint64]*Node{
 		1: node1,
 		2: node2,
 		3: node3,
@@ -87,7 +87,7 @@ func TestStartElectionRetry(t *testing.T) {
 	node5.Peers = []Peer{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 4}}
 
 	rpc := NewInMemoryRaftRPC()
-	rpc.peers = map[uint64]*Node{
+	rpc.Peers = map[uint64]*Node{
 		1: node1,
 		2: node2,
 		//3: node3,
@@ -107,7 +107,7 @@ func TestStartElectionRetry(t *testing.T) {
 		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
 	}
 
-	rpc.peers = map[uint64]*Node{
+	rpc.Peers = map[uint64]*Node{
 		1: node1,
 		2: node2,
 		3: node3,
@@ -115,4 +115,30 @@ func TestStartElectionRetry(t *testing.T) {
 		5: node5,
 	}
 
+}
+
+func TestCandidateBeaten(t *testing.T) {
+	node := NewNode(1)
+
+	node.StartElection()
+
+	b := Ballot{
+		Term:         3,
+		CandidateId:  2,
+		LastLogIndex: 1,
+		LastLogTerm:  1,
+	}
+
+	resp := node.RequestVote(b)
+	if !resp.VoteGranted {
+		t.Errorf("Expected vote granted")
+	}
+
+	if node.role != Follower {
+		t.Errorf("Expected role to be Follower, was %s", node.role.String())
+	}
+
+	if node.state.votedFor != 2 {
+		t.Errorf("Expected votedFor to be 2, was %d", node.state.votedFor)
+	}
 }

@@ -30,7 +30,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.AppendEntries(req1)
+	resp := node.recvAppendEntries(req1)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}
@@ -64,7 +64,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.AppendEntries(req1)
+	resp := node.recvAppendEntries(req1)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}
@@ -88,7 +88,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp = node.AppendEntries(req2)
+	resp = node.recvAppendEntries(req2)
 	if !resp.Success {
 		t.Errorf("Expected failure")
 	}
@@ -125,7 +125,7 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.AppendEntries(req)
+	resp := node.recvAppendEntries(req)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}

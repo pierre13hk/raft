@@ -61,9 +61,10 @@ type Node struct {
 	RaftRPC      RaftRPC
 	Peers        []Peer
 
-	electionChannel chan BallotResponse
-	mtx             sync.Mutex
-	timer           *time.Timer
+	electionChannel     chan BallotResponse
+	mtx                 sync.Mutex
+	timer               *time.Timer
+	timerBackoffCounter int
 }
 
 type AppendEntriesRequest struct {
@@ -106,12 +107,11 @@ func NewNode(id uint64) *Node {
 func (n *Node) Start() {
 	/* Start the node */
 	go n.nodeDaemon()
-	
+
 }
 
-func (n *Node) AppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
+func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
 	/* AppendEntries RPC */
-
 	if req.Term < n.state.currentTerm {
 		log.Println("AppendEntries: Request term is less than current term")
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
@@ -122,10 +122,16 @@ func (n *Node) AppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
 
+	if n.role == Candidate {
+		close(n.electionChannel)
+	}
+	n.role = Follower
+	n.state.votedFor = req.LeaderId
 	if len(req.Entries) == 0 {
 		// heatbeat
-		log.Println("AppendEntries: Heartbeat from leader")
-		n.RestartElectionTimer()
+		n.timerBackoffCounter = 1
+		log.Printf("Node %d: AppendEntries: Heartbeat from leader %d\n", n.state.id, req.LeaderId)
+		n.RestartHeartbeatTimer()
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
 
@@ -139,7 +145,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
 			break
 		}
 	}
-	log.Println("AppendEntries: Appending new entries")
+	log.Printf("Node %d: AppendEntries: Appending new entries\n", n.state.id)
 	new := 0
 	for i, entry := range req.Entries {
 		_, err := n.state.logger.Get(entry.Index)
@@ -156,7 +162,16 @@ func (n *Node) AppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
 
 func (n *Node) RestartElectionTimer() {
 	/* Restart the election timer */
-	n.timer.Reset(time.Duration(200+rand.Intn(150)) * time.Millisecond)
+	n.timer.Stop()
+	n.timerBackoffCounter += 1
+	t := time.Duration(200) + time.Duration(rand.Intn(1000)*n.timerBackoffCounter)
+	n.timer.Reset(t * time.Millisecond)
+}
+
+func (n *Node) RestartHeartbeatTimer() {
+	/* Restart the heartbeat timer */
+	n.timer.Stop()
+	n.timer.Reset(time.Duration(800) * time.Millisecond)
 }
 
 func (n *Node) nodeDaemon() {
@@ -165,7 +180,12 @@ func (n *Node) nodeDaemon() {
 		select {
 		case <-n.timer.C:
 			// Election timeout
-			n.StartElection()
+			if n.role == Leader {
+				n.leaderHeartbeat()
+			} else {
+				log.Printf("Node %d : Election timeout\n", n.state.id)
+				n.StartElection()
+			}
 		}
 	}
 }
