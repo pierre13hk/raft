@@ -44,6 +44,10 @@ func (n *Node) RequestVote(ballot Ballot) BallotResponse {
 	 * and we haven't voted for anyone else
 	 */
 	n.state.votedFor = ballot.CandidateId
+	n.state.currentTerm = ballot.Term
+	n.role = Follower
+	go n.state.save()
+	n.RestartElectionTimer()
 	return BallotResponse{Term: ballot.Term, VoteGranted: true}
 }
 
@@ -52,7 +56,6 @@ func (n *Node) StartElection() {
 	n.mtx.Lock()
 	n.state.currentTerm += 1
 	n.state.votedFor = n.state.id
-
 	go n.state.save()
 
 	n.role = Candidate

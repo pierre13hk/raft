@@ -41,14 +41,14 @@ func (l *InMemoryLogger) LastLogIndex() uint64 {
 }
 
 func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
-	if index > uint64(len(l.entries)) {
+	if uint64(len(l.entries)) < index {
 		return LogEntry{}, errors.New("No such entry")
 	}
 	return l.entries[index-1], nil
 }
 
 func (l *InMemoryLogger) GetRange(start uint64) ([]LogEntry, error) {
-	if start > uint64(len(l.entries)) {
+	if uint64(len(l.entries)) < start {
 		return nil, errors.New("No such entry")
 	}
 	return l.entries[start-1:], nil
@@ -56,5 +56,6 @@ func (l *InMemoryLogger) GetRange(start uint64) ([]LogEntry, error) {
 
 func (l *InMemoryLogger) Append(entries []LogEntry) error {
 	l.entries = append(l.entries, entries...)
+
 	return nil
 }

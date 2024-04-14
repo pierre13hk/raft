@@ -6,10 +6,48 @@ import (
 )
 
 func TestRequestVote(t *testing.T) {
-	node := NewNode(1)
+	/*
+		node := NewNode(1)
 
-	node.StartElection()
+		node.StartElection()
+		if node.role != Candidate {
+			t.Errorf("Expected role to be Candidate, was %s", node.role.String())
+		}
+		b := Ballot{
+			Term:         0,
+			CandidateId:  2,
+			LastLogIndex: 0,
+			LastLogTerm:  0,
+		}
 
+		resp := node.RequestVote(b)
+		if resp.VoteGranted {
+			t.Errorf("Expected vote not granted")
+		}
+	*/
+	node1 := NewNode(1)
+	node2 := NewNode(2)
+	node3 := NewNode(3)
+
+	node1.Peers = []Peer{{Id: 2}, {Id: 3}}
+	node2.Peers = []Peer{{Id: 1}, {Id: 3}}
+	node3.Peers = []Peer{{Id: 1}, {Id: 2}}
+
+	rpc := NewInMemoryRaftRPC()
+	rpc.Peers = map[uint64]*Node{
+		1: node1,
+		2: node2,
+		3: node3,
+	}
+
+	node1.RaftRPC = rpc
+	node2.RaftRPC = rpc
+	node3.RaftRPC = rpc
+
+	node1.StartElection()
+	if node1.role != Candidate {
+		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
+	}
 	b := Ballot{
 		Term:         0,
 		CandidateId:  2,
@@ -17,11 +55,10 @@ func TestRequestVote(t *testing.T) {
 		LastLogTerm:  0,
 	}
 
-	resp := node.RequestVote(b)
+	resp := node1.RequestVote(b)
 	if resp.VoteGranted {
 		t.Errorf("Expected vote not granted")
 	}
-
 }
 
 func TestStartElection(t *testing.T) {

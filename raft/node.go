@@ -13,6 +13,7 @@ const (
 	Follower Role = iota
 	Candidate
 	Leader
+	ElectionLoser
 )
 
 func (r Role) String() string {
@@ -65,6 +66,10 @@ type Node struct {
 	mtx                 sync.Mutex
 	timer               *time.Timer
 	timerBackoffCounter int
+
+	leaderReplicationState map[uint64]FollowerReplicationState
+
+	run bool
 }
 
 type AppendEntriesRequest struct {
@@ -106,16 +111,31 @@ func NewNode(id uint64) *Node {
 
 func (n *Node) Start() {
 	/* Start the node */
+	n.run = true
 	go n.nodeDaemon()
 
+}
+
+func (n *Node) Stop() {
+	n.run = false
 }
 
 func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
 	/* AppendEntries RPC */
 	if req.Term < n.state.currentTerm {
-		log.Println("AppendEntries: Request term is less than current term")
+		log.Printf("Node %d: AppendEntries: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
+	if n.state.currentTerm <= req.Term && n.role == Candidate {
+		log.Printf("Node %d: AppendEntries: Term %d >= currentTerm %d, stepping down\n", n.state.id, req.Term, n.state.currentTerm)
+		n.role = Follower
+		n.state.currentTerm = req.Term
+		n.state.votedFor = req.LeaderId
+		close(n.electionChannel)
+		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
+	}
+
+	// 
 	lg, err := n.state.logger.Get(req.PrevLogIndex)
 	if err != nil || lg.Term != req.PrevLogTerm {
 		log.Println("AppendEntries: Log doesn't match")
@@ -128,24 +148,35 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	n.role = Follower
 	n.state.votedFor = req.LeaderId
 	if len(req.Entries) == 0 {
-		// heatbeat
+		// heartbeat
 		n.timerBackoffCounter = 1
 		log.Printf("Node %d: AppendEntries: Heartbeat from leader %d\n", n.state.id, req.LeaderId)
 		n.RestartHeartbeatTimer()
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
 
-	logs, _ := n.state.logger.GetRange(req.PrevLogIndex + 1)
-	for i, entry := range logs {
-		// A node can't have a more up to date log than the leader
-		// So req.Entries[i] should always be valid / in bounds
-		if entry.Term != req.Entries[i].Term {
-			log.Println("AppendEntries: Log doesn't match, truncating from ", entry.Index, entry.Command)
-			n.state.logger.TruncateTo(entry.Index)
-			break
+	//logs, _ := n.state.logger.GetRange(req.PrevLogIndex + 1)
+	if req.Entries[0].Index <= n.state.logger.LastLogIndex()-1 {
+		for _, entry := range req.Entries {
+			if entry.Index > n.state.logger.LastLogIndex() {
+				break
+			}
+			localLog, err := n.state.logger.Get(entry.Index)
+			if err != nil {
+				log.Println("shouldnt happen")
+				break
+			}
+			// A node can't have a more up to date log than the leader
+			// So req.Entries[i] should always be valid / in bounds
+			if entry.Term != localLog.Term {
+				//log.Println("Node % d AppendEntries: Log doesn't match, truncating from ", n.state.id, entry.Index, entry.Command)
+				n.state.logger.TruncateTo(entry.Index)
+				break
+			}
 		}
 	}
-	log.Printf("Node %d: AppendEntries: Appending new entries\n", n.state.id)
+
+	//log.Printf("Node %d: AppendEntries: Appending new entries\n", n.state.id)
 	new := 0
 	for i, entry := range req.Entries {
 		_, err := n.state.logger.Get(entry.Index)
@@ -154,7 +185,7 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 			break
 		}
 	}
-
+	log.Printf("Node %d: AppendEntries: Appending %d new entries new = %d, len reqent %d\n", n.state.id, len(req.Entries[new:]), new, len(req.Entries))
 	n.state.logger.Append(req.Entries[new:])
 
 	return AppendEntriesResponse{n.state.currentTerm, true}
@@ -176,7 +207,7 @@ func (n *Node) RestartHeartbeatTimer() {
 
 func (n *Node) nodeDaemon() {
 	/* Timer daemon */
-	for {
+	for n.run {
 		select {
 		case <-n.timer.C:
 			// Election timeout
@@ -188,4 +219,24 @@ func (n *Node) nodeDaemon() {
 			}
 		}
 	}
+}
+
+type DebugNode struct {
+	Node *Node
+}
+
+func NewDebugNode(id uint64) *DebugNode {
+	return &DebugNode{
+		Node: NewNode(id),
+	}
+}
+
+func (n *DebugNode) Start() {
+	n.Node.Start()
+}
+
+func (n *DebugNode) Stop() []LogEntry {
+	n.Node.Stop()
+	entries, _ := n.Node.state.logger.GetRange(1)
+	return entries
 }

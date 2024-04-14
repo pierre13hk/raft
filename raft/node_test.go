@@ -135,3 +135,42 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		t.Errorf("Wrong term %d %s", log.Term, string(log.Command[0]))
 	}
 }
+
+func TestAppendEntriesFollowerNewLeader(t *testing.T) {
+	/*
+		A follower node has not noticed that a new leader has been elected.
+		Check that this node will accept the new leader's log entries.
+	*/
+
+	node := NewNode(10)
+	logger := &InMemoryLogger{
+		entries: []LogEntry{
+			{Term: 1, Index: 1, Command: []byte("init")},
+			{Term: 2, Index: 2, Command: []byte("a")},
+			{Term: 2, Index: 3, Command: []byte("b")},
+		},
+	}
+	node.state.logger = logger
+
+	req := AppendEntriesRequest{
+		Term:         3,
+		LeaderId:     123,
+		PrevLogIndex: 3,
+		PrevLogTerm:  2,
+		Entries: []LogEntry{
+			{Term: 3, Index: 4, Command: []byte("x")},
+		},
+		LeaderCommit: 1,
+	}
+
+	resp := node.recvAppendEntries(req)
+	if !resp.Success {
+		t.Errorf("Expected success")
+	}
+
+	log, _ := node.state.logger.Get(4)
+	if log.Term != 3 || log.Command[0] != 'x' {
+		t.Errorf("Wrong term %d %s", log.Term, string(log.Command[0]))
+	}
+
+}
