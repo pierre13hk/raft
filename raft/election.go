@@ -20,6 +20,8 @@ type BallotResponse struct {
 
 func (n *Node) RequestVote(ballot Ballot) BallotResponse {
 	log.Printf("Node %d received RequestVote from %d, local term %d vs ballot term %d\n", n.state.id, ballot.CandidateId, n.state.currentTerm, ballot.Term)
+	n.mtx.Lock()
+	defer n.mtx.Unlock()
 	/* We have a newer term */
 	if ballot.Term < n.state.currentTerm {
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
@@ -87,6 +89,11 @@ func (n *Node) StartElection() {
 	n.RestartElectionTimer()
 	votes := 1
 	for range n.Peers {
+		if n.role != Candidate {
+			/* We lost the election */
+			close(n.electionChannel)
+			return
+		}
 		resp, open := <-n.electionChannel
 		if !open {
 			/* Our channel is closed, the election is over */
@@ -112,6 +119,8 @@ func (n *Node) StartElection() {
 	}
 	/* Lost the election */
 	log.Printf("Node %d lost the election w votes %d\n", n.state.id, votes)
+	n.mtx.Lock()
+	defer n.mtx.Unlock()
 	n.role = Follower
 	n.state.votedFor = 0
 	close(n.electionChannel)
