@@ -1,0 +1,129 @@
+package raft
+
+/* InMemoryLogger is a simple in-memory logger */
+type InMemoryLogger struct {
+	entries []LogEntry
+}
+
+func (l *InMemoryLogger) TruncateFrom(index uint64) {
+	l.entries = l.entries[index:]
+}
+
+func (l *InMemoryLogger) TruncateTo(index uint64) {
+	l.entries = l.entries[:index-1]
+}
+
+func (l *InMemoryLogger) LastLogTerm() uint64 {
+	return l.entries[len(l.entries)-1].Term
+}
+
+func (l *InMemoryLogger) LastLogIndex() uint64 {
+	return l.entries[len(l.entries)-1].Index
+}
+
+func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
+	if uint64(len(l.entries)) < index {
+		return LogEntry{}, errors.New("No such entry")
+	}
+	return l.entries[index-1], nil
+}
+
+func (l *InMemoryLogger) GetRange(start uint64) ([]LogEntry, error) {
+	if uint64(len(l.entries)) < start {
+		return nil, errors.New("No such entry")
+	}
+	return l.entries[start-1:], nil
+}
+
+func (l *InMemoryLogger) Append(entries []LogEntry) error {
+	l.entries = append(l.entries, entries...)
+
+	return nil
+}
+
+
+/* Debug RPC */
+type InMemoryRaftRPC struct {
+	Peers map[uint64]*Node
+}
+
+func NewInMemoryRaftRPC() *InMemoryRaftRPC {
+	return &InMemoryRaftRPC{
+		Peers: make(map[uint64]*Node),
+	}
+}
+
+func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot, c chan BallotResponse) error {
+	peer := r.Peers[p.Id]
+	if peer == nil {
+		return errors.New("Peer not found")
+	}
+
+	// Simulate network latency
+	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+
+	defer func() {
+		if recover() != nil {
+			// we wrote to a closed channel
+			// the election is over.
+		}
+	}()
+	resp := peer.RequestVote(ballot)
+	c <- resp
+	return nil
+}
+
+func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (AppendEntriesResponse, error) {
+	peer := r.Peers[p.Id]
+	if peer == nil {
+		return AppendEntriesResponse{}, errors.New("Peer not found")
+	}
+
+	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+	// Simulate network latency
+
+	resp := peer.recvAppendEntries(req)
+	return resp, nil
+}
+
+
+/* Debug StateMachine */
+type DebugStateMachine struct {
+	/* A simple state machine that logs all commands and can be used for testing */
+	Log []string
+}
+
+func (d *DebugStateMachine) Apply(command []byte) error {
+	d.Log = append(d.Log, string(command))
+	return nil
+}
+
+func (d *DebugStateMachine) Serialize() ([]byte, error) {
+	return []byte{}, nil
+}
+
+func (d *DebugStateMachine) Deserialize([]byte) error {
+	return nil
+}
+
+
+/* Debug Node */
+type DebugNode struct {
+	Node *Node
+}
+
+func NewDebugNode(id uint64) *DebugNode {
+	return &DebugNode{
+		Node: NewNode(id),
+	}
+}
+
+func (n *DebugNode) Start() {
+	n.Node.Start()
+}
+
+func (n *DebugNode) Stop() []LogEntry {
+	n.Node.Stop()
+	entries, _ := n.Node.state.logger.GetRange(1)
+	return entries
+}

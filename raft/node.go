@@ -220,23 +220,3 @@ func (n *Node) nodeDaemon() {
 		}
 	}
 }
-
-type DebugNode struct {
-	Node *Node
-}
-
-func NewDebugNode(id uint64) *DebugNode {
-	return &DebugNode{
-		Node: NewNode(id),
-	}
-}
-
-func (n *DebugNode) Start() {
-	n.Node.Start()
-}
-
-func (n *DebugNode) Stop() []LogEntry {
-	n.Node.Stop()
-	entries, _ := n.Node.state.logger.GetRange(1)
-	return entries
-}
