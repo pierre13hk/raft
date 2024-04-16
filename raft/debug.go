@@ -1,5 +1,10 @@
 package raft
 
+import (
+	"errors"
+	"math/rand"
+	"time"
+)
 /* InMemoryLogger is a simple in-memory logger */
 type InMemoryLogger struct {
 	entries []LogEntry
@@ -10,7 +15,7 @@ func (l *InMemoryLogger) TruncateFrom(index uint64) {
 }
 
 func (l *InMemoryLogger) TruncateTo(index uint64) {
-	l.entries = l.entries[:index-1]
+	l.entries = l.entries[:index]
 }
 
 func (l *InMemoryLogger) LastLogTerm() uint64 {
@@ -22,17 +27,17 @@ func (l *InMemoryLogger) LastLogIndex() uint64 {
 }
 
 func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
-	if uint64(len(l.entries)) < index {
+	if index < 0 || uint64(len(l.entries)) <= index {
 		return LogEntry{}, errors.New("No such entry")
 	}
-	return l.entries[index-1], nil
+	return l.entries[index], nil
 }
 
 func (l *InMemoryLogger) GetRange(start uint64) ([]LogEntry, error) {
 	if uint64(len(l.entries)) < start {
 		return nil, errors.New("No such entry")
 	}
-	return l.entries[start-1:], nil
+	return l.entries[start:], nil
 }
 
 func (l *InMemoryLogger) Append(entries []LogEntry) error {
@@ -86,6 +91,12 @@ func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (Ap
 	return resp, nil
 }
 
+func (r *InMemoryRaftRPC) ForwardToLeaderRPC(peer Peer, req ClientRequest) (ClientRequestResponse, error) {
+	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+	// Simulate network latency
+	node := r.Peers[peer.Id]
+	return node.clientRequestHandler(req), nil
+}
 
 /* Debug StateMachine */
 type DebugStateMachine struct {
@@ -127,3 +138,13 @@ func (n *DebugNode) Stop() []LogEntry {
 	entries, _ := n.Node.state.logger.GetRange(1)
 	return entries
 }
+
+func (n *DebugNode) Apply(command []byte) error {
+	resp := n.Node.clientRequestHandler(ClientRequest{Command: command})
+	if resp.Success {
+		return nil
+	} else {
+		return errors.New("Failed to apply command")
+	}
+}
+
