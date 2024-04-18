@@ -27,7 +27,7 @@ func (l *InMemoryLogger) LastLogIndex() uint64 {
 }
 
 func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
-	if index < 0 || uint64(len(l.entries)) <= index {
+	if index < 0 || index >= uint64(len(l.entries)) {
 		return LogEntry{}, errors.New("No such entry")
 	}
 	return l.entries[index], nil
@@ -65,7 +65,7 @@ func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot, c chan BallotRes
 	}
 
 	// Simulate network latency
-	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+	//time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
 	defer func() {
 		if recover() != nil {
@@ -84,7 +84,7 @@ func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (Ap
 		return AppendEntriesResponse{}, errors.New("Peer not found")
 	}
 
-	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+	//time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 
 	resp := peer.recvAppendEntries(req)

@@ -48,21 +48,39 @@ func main() {
 			n.Start()
 		}(node)
 	}
-	
-	time.Sleep(100 * time.Second)
+	time.Sleep(3 * time.Second)
+	client := node1
+	for i := 0; i < 13; i++ {
+		client.Apply([]byte(fmt.Sprintf("command %d", i)))
+		time.Sleep(200 * time.Millisecond)
+	}
+
+
+	time.Sleep(13 * time.Second)
 	lst := make([][]raft.LogEntry, 0)
 	for _, node := range nodes {
 		lst = append(lst, node.Stop())
 		wg.Done()
 	}
 	
+
 	
 	for i, logs := range lst {
-		fmt.Println("Log entries: for node ", i)
-		for _, log := range logs {
-			fmt.Println(string(log.Command))
+		if len(logs) != len(lst[0]) {
+			fmt.Printf("Node %d has different log length\n", i+1)
+		}
+		for j, log := range logs {
+			if log.Term != lst[0][j].Term || log.Index != lst[0][j].Index {
+				fmt.Printf("Node %d has different log at index %d\n", i+1, j+1)
+			}
 		}
 	}
+	for i,_ := range lst[0] {
+		fmt.Printf("Log at index %d: %s | ", lst[0][i].Index, string(lst[0][i].Command))
+		fmt.Printf("Log at index %d: %s | ", lst[1][i].Index, string(lst[1][i].Command))
+		fmt.Printf("Log at index %d: %s | \n", lst[2][i].Index, string(lst[2][i].Command))
+	}
+
 	
 
 	wg.Wait()

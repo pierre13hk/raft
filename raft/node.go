@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+	"errors"
 )
 
 type Role int
@@ -98,7 +99,7 @@ func NewNode(id uint64) *Node {
 			matchIndex:  make(map[uint64]uint64),
 			logger: &InMemoryLogger{
 				entries: []LogEntry{
-					{Term: 1, Index: 1, Command: []byte("init")},
+					{Term: 1, Index: 0, Command: []byte("init")},
 				},
 			},
 		},
@@ -113,7 +114,11 @@ func (n *Node) Start() {
 	/* Start the node */
 	n.run = true
 	go n.nodeDaemon()
-
+	go func() {
+		for {
+			time.Sleep(time.Duration(100) * time.Second)
+		}
+	}()
 }
 
 func (n *Node) Stop() {
@@ -134,11 +139,11 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 		close(n.electionChannel)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
-
-	// 
+	
+	n.RestartHeartbeatTimer()
 	lg, err := n.state.logger.Get(req.PrevLogIndex)
 	if err != nil || lg.Term != req.PrevLogTerm {
-		log.Println("AppendEntries: Log doesn't match")
+		log.Println("AppendEntries: Log doesn't match", err, lg.Term, req.PrevLogTerm)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
 
@@ -151,7 +156,6 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 		// heartbeat
 		n.timerBackoffCounter = 1
 		log.Printf("Node %d: AppendEntries: Heartbeat from leader %d\n", n.state.id, req.LeaderId)
-		n.RestartHeartbeatTimer()
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
 
@@ -169,7 +173,7 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 			// A node can't have a more up to date log than the leader
 			// So req.Entries[i] should always be valid / in bounds
 			if entry.Term != localLog.Term {
-				//log.Println("Node % d AppendEntries: Log doesn't match, truncating from ", n.state.id, entry.Index, entry.Command)
+				log.Println("Node % d AppendEntries: Log doesn't match, truncating from ", n.state.id, entry.Index, entry.Command)
 				n.state.logger.TruncateTo(entry.Index)
 				break
 			}
@@ -193,16 +197,21 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 
 func (n *Node) RestartElectionTimer() {
 	/* Restart the election timer */
-	n.timer.Stop()
-	n.timerBackoffCounter += 1
-	t := time.Duration(200) + time.Duration(rand.Intn(1000)*n.timerBackoffCounter)
-	n.timer.Reset(t * time.Millisecond)
+	if !n.timer.Stop() {
+		
+	}
+	t := time.Duration(1) * time.Second
+	n.timer.Reset(t)
 }
 
 func (n *Node) RestartHeartbeatTimer() {
 	/* Restart the heartbeat timer */
 	n.timer.Stop()
-	n.timer.Reset(time.Duration(800) * time.Millisecond)
+	n.timer.Reset(time.Duration(1) * time.Second)
+}
+
+func (n *Node) StopTimer() {
+	n.timer.Stop()
 }
 
 func (n *Node) nodeDaemon() {
@@ -219,4 +228,16 @@ func (n *Node) nodeDaemon() {
 			}
 		}
 	}
+}
+
+func (n *Node) GetLeader() (Peer, error){
+	/* Get the leader */
+	if n.role != Leader {
+		for _, peer := range n.Peers {
+			if peer.Id == n.state.votedFor {
+				return peer, nil
+			}
+		}
+	}
+	return Peer{}, errors.New("No leader")
 }

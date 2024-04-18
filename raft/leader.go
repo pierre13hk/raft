@@ -3,7 +3,6 @@ package raft
 import (
 	"log"
 	"slices"
-	"strconv"
 	"time"
 )
 
@@ -14,6 +13,8 @@ type FollowerReplicationState struct {
 
 func (n *Node) leaderHeartbeat() {
 	/* Send AppendEntries RPC to all peers */
+	n.mtx.Lock()
+	/*
 	request := AppendEntriesRequest{
 		Term:         n.state.currentTerm,
 		LeaderId:     n.state.id,
@@ -22,16 +23,17 @@ func (n *Node) leaderHeartbeat() {
 		Entries:      []LogEntry{},
 		LeaderCommit: n.state.commitIndex,
 	}
-
+	*/
+	channel := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
 			continue
 		}
 		go func(p Peer) {
-			n.RaftRPC.AppendEntriesRPC(p, request)
+			n.appendEntriesToPeer(p, channel)
 		}(peer)
 	}
-
+	n.mtx.Unlock()
 	n.RestartHeartbeatTimerLeader()
 }
 
@@ -51,69 +53,38 @@ func (n *Node) leaderDaemon() {
 			matchIndex: 0,
 		}
 	}
-
-	// daemon loop
-	msg := "Node " + strconv.FormatUint(n.state.id, 10) + " : saying hello!"
-	entry := LogEntry{
-		Term:    n.state.currentTerm,
-		Index:   n.state.logger.LastLogIndex() + 1,
-		Command: []byte(msg),
-	}
-	n.state.logger.Append([]LogEntry{entry})
-	n.appendEntries()
-	n.timer.Stop()
-	for i := 0; i < 10; i++ {
-		time.Sleep(200 * time.Millisecond)
-	}
-
 }
 
-func (n *Node) appendEntries() {
+func (n *Node) appendEntries() bool {
 	/* Replicate log entries to all peers */
+	responseChannel := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
 			continue
 		}
 		if n.leaderReplicationState[peer.Id].nextIndex <= n.state.logger.LastLogIndex() {
-			n.appendEntriesToPeer(peer)
+			go n.appendEntriesToPeer(peer, responseChannel)
 		}
 	}
+	log.Printf("Node %d : Waiting for responses\n", n.state.id)
+	replicatedCount := 0
+	for range n.Peers {
+		<-responseChannel
+		replicatedCount += 1
+	}
+	log.Printf("Node %d : Got all responses\n", n.state.id)
+	if replicatedCount > len(n.Peers)/2 {
+		/* Majority replicated */
+		n.state.commitIndex = n.largestCommitedIndex(&n.leaderReplicationState)
+		return true
+	}
+	return false
 }
 
-func (n *Node) appendEntriesToPeer(peer Peer) {
+func (n *Node) appendEntriesToPeer(peer Peer, responseChannel chan bool) {
 	/* Replicate log entries to a peer */
 	peerUpToDate := false
-	for !peerUpToDate {
-		state := n.leaderReplicationState[peer.Id]
-		prevLog, _ := n.state.logger.Get(state.nextIndex - 1)
-		entries, _ := n.state.logger.GetRange(state.nextIndex)
-		request := AppendEntriesRequest{
-			Term:         n.state.currentTerm,
-			LeaderId:     n.state.id,
-			PrevLogIndex: state.nextIndex - 1,
-			PrevLogTerm:  prevLog.Term,
-			Entries:      entries,
-			LeaderCommit: n.state.commitIndex,
-		}
-
-		response, error := n.RaftRPC.AppendEntriesRPC(peer, request)
-		peerUpToDate = true
-		log.Printf("Node %d : AppendEntries got resp\n", n.state.id)
-		if error != nil {
-			if response.Success {
-				state.nextIndex = n.state.logger.LastLogIndex()
-				state.matchIndex = state.nextIndex
-				n.leaderReplicationState[peer.Id] = state
-				peerUpToDate = true
-			} else {
-				log.Printf("Node %d : AppendEntries failed\n", n.state.id)
-				state.nextIndex -= 1
-			}
-
-		} else {
-			// retry? exponential backoff?
-		}
-	}
+	// to rewrite
 }
 
 func (n *Node) largestCommitedIndex(p *map[uint64]FollowerReplicationState) uint64 {

@@ -1,7 +1,7 @@
 package raft
 
 import (
-	"errors"
+
 )
 
 type LogEntry struct {

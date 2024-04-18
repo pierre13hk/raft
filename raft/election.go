@@ -50,15 +50,19 @@ func (n *Node) RequestVote(ballot Ballot) BallotResponse {
 	n.role = Follower
 	go n.state.save()
 	n.RestartElectionTimer()
+	log.Printf("Node %d voted for %d\n", n.state.id, ballot.CandidateId)
 	return BallotResponse{Term: ballot.Term, VoteGranted: true}
 }
 
+
 func (n *Node) StartElection() {
-	log.Printf("Node %d starting election", n.state.id)
+	log.Printf("Node %d starting election\n", n.state.id)
 	n.mtx.Lock()
+	n.StopTimer()
 	n.state.currentTerm += 1
 	n.state.votedFor = n.state.id
-	go n.state.save()
+	n.role = Candidate
+	n.state.save()
 
 	n.role = Candidate
 	ballot := Ballot{
@@ -83,18 +87,24 @@ func (n *Node) StartElection() {
 			}
 		}(peer)
 	}
+	log.Printf("Node %d sent RequestVote rpcs, collecting votes\n", n.state.id)
+	n.CountVotes()
+	if n.role == Leader {
+		go n.leaderDaemon()
+	}
+}
 
-	/* Count the votes */
-	log.Printf("Node %d waiting for votes term: %d\n", n.state.id, n.state.currentTerm)
+func (n *Node) CountVotes() {
+	channel := n.electionChannel
 	n.RestartElectionTimer()
 	votes := 1
 	for range n.Peers {
 		if n.role != Candidate {
 			/* We lost the election */
-			close(n.electionChannel)
+			close(channel)
 			return
 		}
-		resp, open := <-n.electionChannel
+		resp, open := <-channel
 		if !open {
 			/* Our channel is closed, the election is over */
 			n.role = Follower
@@ -104,25 +114,17 @@ func (n *Node) StartElection() {
 		}
 
 		if resp.VoteGranted && resp.Term == n.state.currentTerm {
-			log.Printf("Node %d received vote\n", n.state.id)
-			votes++
+			n.mtx.Lock()
+			votes += 1
+			n.mtx.Unlock()
 		}
 		if votes > len(n.Peers)/2 {
 			/* Won the election */
 			n.role = Leader
-			log.Printf("Node %d won the election", n.state.id)
 			n.timer.Stop()
-			go n.leaderDaemon()
-			close(n.electionChannel)
+			close(channel)
+			log.Printf("Node %d won the election\n", n.state.id)
 			return
 		}
 	}
-	/* Lost the election */
-	log.Printf("Node %d lost the election w votes %d\n", n.state.id, votes)
-	n.mtx.Lock()
-	defer n.mtx.Unlock()
-	n.role = Follower
-	n.state.votedFor = 0
-	close(n.electionChannel)
-	n.RestartElectionTimer()
 }

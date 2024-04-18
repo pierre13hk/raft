@@ -6,25 +6,7 @@ import (
 )
 
 func TestRequestVote(t *testing.T) {
-	/*
-		node := NewNode(1)
 
-		node.StartElection()
-		if node.role != Candidate {
-			t.Errorf("Expected role to be Candidate, was %s", node.role.String())
-		}
-		b := Ballot{
-			Term:         0,
-			CandidateId:  2,
-			LastLogIndex: 0,
-			LastLogTerm:  0,
-		}
-
-		resp := node.RequestVote(b)
-		if resp.VoteGranted {
-			t.Errorf("Expected vote not granted")
-		}
-	*/
 	node1 := NewNode(1)
 	node2 := NewNode(2)
 	node3 := NewNode(3)
@@ -45,9 +27,6 @@ func TestRequestVote(t *testing.T) {
 	node3.RaftRPC = rpc
 
 	node1.StartElection()
-	if node1.role != Candidate {
-		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
-	}
 	b := Ballot{
 		Term:         0,
 		CandidateId:  2,
@@ -156,7 +135,7 @@ func TestStartElectionRetry(t *testing.T) {
 
 func TestCandidateBeaten(t *testing.T) {
 	node := NewNode(1)
-
+	
 	node.StartElection()
 
 	b := Ballot{
