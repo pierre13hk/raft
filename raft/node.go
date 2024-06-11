@@ -1,11 +1,11 @@
 package raft
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
-	"errors"
 )
 
 type Role int
@@ -55,6 +55,11 @@ type NodeConfig struct {
 	timeoutWindow int
 }
 
+type NodeChannels struct {
+	requestVoteResponseChannel chan BallotResponse
+	appendEntriesResponse      chan AppendEntriesResponse
+}
+
 type Node struct {
 	state NodeState
 	role  Role
@@ -69,8 +74,8 @@ type Node struct {
 	timerBackoffCounter int
 
 	leaderReplicationState map[uint64]FollowerReplicationState
-
-	run bool
+	channels               NodeChannels
+	run                    bool
 }
 
 type AppendEntriesRequest struct {
@@ -107,6 +112,10 @@ func NewNode(id uint64) *Node {
 		StateMachine: &DebugStateMachine{},
 		RaftRPC:      &InMemoryRaftRPC{},
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
+		channels: NodeChannels{
+			requestVoteResponseChannel: make(chan BallotResponse),
+			appendEntriesResponse:      make(chan AppendEntriesResponse),
+		},
 	}
 }
 
@@ -114,11 +123,6 @@ func (n *Node) Start() {
 	/* Start the node */
 	n.run = true
 	go n.nodeDaemon()
-	go func() {
-		for {
-			time.Sleep(time.Duration(100) * time.Second)
-		}
-	}()
 }
 
 func (n *Node) Stop() {
@@ -139,7 +143,7 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 		close(n.electionChannel)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
-	
+
 	n.RestartHeartbeatTimer()
 	lg, err := n.state.logger.Get(req.PrevLogIndex)
 	if err != nil || lg.Term != req.PrevLogTerm {
@@ -198,7 +202,7 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 func (n *Node) RestartElectionTimer() {
 	/* Restart the election timer */
 	if !n.timer.Stop() {
-		
+
 	}
 	t := time.Duration(1) * time.Second
 	n.timer.Reset(t)
@@ -226,11 +230,16 @@ func (n *Node) nodeDaemon() {
 				log.Printf("Node %d : Election timeout\n", n.state.id)
 				n.StartElection()
 			}
+		case response := <-n.channels.requestVoteResponseChannel:
+			log.Printf("Node %d: Received vote response\n", response.Term)
+			continue
+		case response := <-n.channels.appendEntriesResponse:
+			log.Printf("Node %d: Received append entries response\n", response.Term)
 		}
 	}
 }
 
-func (n *Node) GetLeader() (Peer, error){
+func (n *Node) GetLeader() (Peer, error) {
 	/* Get the leader */
 	if n.role != Leader {
 		for _, peer := range n.Peers {

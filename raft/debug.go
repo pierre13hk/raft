@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 )
+
 /* InMemoryLogger is a simple in-memory logger */
 type InMemoryLogger struct {
 	entries []LogEntry
@@ -45,7 +46,6 @@ func (l *InMemoryLogger) Append(entries []LogEntry) error {
 
 	return nil
 }
-
 
 /* Debug RPC */
 type InMemoryRaftRPC struct {
@@ -117,7 +117,6 @@ func (d *DebugStateMachine) Deserialize([]byte) error {
 	return nil
 }
 
-
 /* Debug Node */
 type DebugNode struct {
 	Node *Node
@@ -147,4 +146,3 @@ func (n *DebugNode) Apply(command []byte) error {
 		return errors.New("Failed to apply command")
 	}
 }
-

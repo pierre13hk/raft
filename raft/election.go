@@ -54,7 +54,6 @@ func (n *Node) RequestVote(ballot Ballot) BallotResponse {
 	return BallotResponse{Term: ballot.Term, VoteGranted: true}
 }
 
-
 func (n *Node) StartElection() {
 	log.Printf("Node %d starting election\n", n.state.id)
 	n.mtx.Lock()
@@ -88,10 +87,6 @@ func (n *Node) StartElection() {
 		}(peer)
 	}
 	log.Printf("Node %d sent RequestVote rpcs, collecting votes\n", n.state.id)
-	n.CountVotes()
-	if n.role == Leader {
-		go n.leaderDaemon()
-	}
 }
 
 func (n *Node) CountVotes() {

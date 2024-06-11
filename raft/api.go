@@ -12,7 +12,7 @@ type ClientRequestResponse struct {
 	Success bool
 }
 
-func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse{
+func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse {
 	/* Append the command to the log */
 	n.mtx.Lock()
 	defer n.mtx.Unlock()

@@ -45,7 +45,7 @@ func TestTruncateEnd(t *testing.T) {
 
 	logger.TruncateTo(1)
 
-	if len(logger.entries) != 1{
+	if len(logger.entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(logger.entries))
 	}
 

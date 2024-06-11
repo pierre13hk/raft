@@ -54,7 +54,18 @@ func main() {
 		client.Apply([]byte(fmt.Sprintf("command %d", i)))
 		time.Sleep(200 * time.Millisecond)
 	}
-
+	client = node2
+	for i := 0; i < 13; i++ {
+		client.Apply([]byte(fmt.Sprintf("command %d", i)))
+		time.Sleep(200 * time.Millisecond)
+	}
+	time.Sleep(3 * time.Second)
+	client = node3
+	for i := 0; i < 13; i++ {
+		client.Apply([]byte(fmt.Sprintf("command %d", i)))
+		time.Sleep(200 * time.Millisecond)
+	}
+	
 
 	time.Sleep(13 * time.Second)
 	lst := make([][]raft.LogEntry, 0)

@@ -135,7 +135,7 @@ func TestStartElectionRetry(t *testing.T) {
 
 func TestCandidateBeaten(t *testing.T) {
 	node := NewNode(1)
-	
+
 	node.StartElection()
 
 	b := Ballot{

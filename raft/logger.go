@@ -1,8 +1,6 @@
 package raft
 
-import (
-
-)
+import ()
 
 type LogEntry struct {
 	Term    uint64

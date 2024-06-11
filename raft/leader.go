@@ -15,14 +15,14 @@ func (n *Node) leaderHeartbeat() {
 	/* Send AppendEntries RPC to all peers */
 	n.mtx.Lock()
 	/*
-	request := AppendEntriesRequest{
-		Term:         n.state.currentTerm,
-		LeaderId:     n.state.id,
-		PrevLogIndex: n.state.logger.LastLogIndex(),
-		PrevLogTerm:  n.state.logger.LastLogTerm(),
-		Entries:      []LogEntry{},
-		LeaderCommit: n.state.commitIndex,
-	}
+		request := AppendEntriesRequest{
+			Term:         n.state.currentTerm,
+			LeaderId:     n.state.id,
+			PrevLogIndex: n.state.logger.LastLogIndex(),
+			PrevLogTerm:  n.state.logger.LastLogTerm(),
+			Entries:      []LogEntry{},
+			LeaderCommit: n.state.commitIndex,
+		}
 	*/
 	channel := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
@@ -83,8 +83,32 @@ func (n *Node) appendEntries() bool {
 
 func (n *Node) appendEntriesToPeer(peer Peer, responseChannel chan bool) {
 	/* Replicate log entries to a peer */
-	peerUpToDate := false
-	// to rewrite
+	peerState := n.leaderReplicationState[peer.Id]
+	entries, _ := n.state.logger.GetRange(peerState.nextIndex)
+	if entries == nil {
+		responseChannel <- true
+		return
+	}
+	previousLog, _ := n.state.logger.Get(peerState.nextIndex - 1)
+	request := AppendEntriesRequest{
+		Term:         n.state.currentTerm,
+		LeaderId:     n.state.id,
+		PrevLogIndex: previousLog.Index,
+		PrevLogTerm:  previousLog.Term,
+		Entries:      entries,
+		LeaderCommit: n.state.commitIndex,
+	}
+	response, _ := n.RaftRPC.AppendEntriesRPC(peer, request)
+	if response.Success {
+		peerState.nextIndex += uint64(len(entries))
+		peerState.matchIndex = peerState.nextIndex - 1
+		n.leaderReplicationState[peer.Id] = peerState
+		responseChannel <- true
+	} else {
+		peerState.nextIndex -= 1
+		n.leaderReplicationState[peer.Id] = peerState
+		responseChannel <- false
+	}
 }
 
 func (n *Node) largestCommitedIndex(p *map[uint64]FollowerReplicationState) uint64 {
