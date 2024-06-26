@@ -134,7 +134,7 @@ func (n *DebugNode) Start() {
 
 func (n *DebugNode) Stop() []LogEntry {
 	n.Node.Stop()
-	entries, _ := n.Node.state.logger.GetRange(1)
+	entries, _ := n.Node.state.GetRange(1)
 	return entries
 }
 

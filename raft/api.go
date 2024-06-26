@@ -31,9 +31,9 @@ func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse
 		return resp
 	} else {
 		log.Printf("Node %d (leader): Appending command to log\n", n.state.id)
-		n.state.logger.Append([]LogEntry{LogEntry{
+		n.state.Append([]LogEntry{LogEntry{
 			Term:    n.state.currentTerm,
-			Index:   n.state.logger.LastLogIndex() + 1,
+			Index:   n.state.LastLogIndex() + 1,
 			Command: request.Command,
 		}})
 		ok := n.appendEntries()

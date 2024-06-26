@@ -18,8 +18,8 @@ func (n *Node) leaderHeartbeat() {
 		request := AppendEntriesRequest{
 			Term:         n.state.currentTerm,
 			LeaderId:     n.state.id,
-			PrevLogIndex: n.state.logger.LastLogIndex(),
-			PrevLogTerm:  n.state.logger.LastLogTerm(),
+			PrevLogIndex: n.state.LastLogIndex(),
+			PrevLogTerm:  n.state.LastLogTerm(),
 			Entries:      []LogEntry{},
 			LeaderCommit: n.state.commitIndex,
 		}
@@ -49,7 +49,7 @@ func (n *Node) leaderDaemon() {
 	n.leaderReplicationState = make(map[uint64]FollowerReplicationState)
 	for _, peer := range n.Peers {
 		n.leaderReplicationState[peer.Id] = FollowerReplicationState{
-			nextIndex:  n.state.logger.LastLogIndex() + 1,
+			nextIndex:  n.state.LastLogIndex() + 1,
 			matchIndex: 0,
 		}
 	}
@@ -62,7 +62,7 @@ func (n *Node) appendEntries() bool {
 		if peer.Id == n.state.id {
 			continue
 		}
-		if n.leaderReplicationState[peer.Id].nextIndex <= n.state.logger.LastLogIndex() {
+		if n.leaderReplicationState[peer.Id].nextIndex <= n.state.LastLogIndex() {
 			go n.appendEntriesToPeer(peer, responseChannel)
 		}
 	}
@@ -84,12 +84,12 @@ func (n *Node) appendEntries() bool {
 func (n *Node) appendEntriesToPeer(peer Peer, responseChannel chan bool) {
 	/* Replicate log entries to a peer */
 	peerState := n.leaderReplicationState[peer.Id]
-	entries, _ := n.state.logger.GetRange(peerState.nextIndex)
+	entries, _ := n.state.GetRange(peerState.nextIndex)
 	if entries == nil {
 		responseChannel <- true
 		return
 	}
-	previousLog, _ := n.state.logger.Get(peerState.nextIndex - 1)
+	previousLog, _ := n.state.Get(peerState.nextIndex - 1)
 	request := AppendEntriesRequest{
 		Term:         n.state.currentTerm,
 		LeaderId:     n.state.id,

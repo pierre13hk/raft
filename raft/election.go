@@ -33,11 +33,11 @@ func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
 
-	if ballot.LastLogTerm < n.state.logger.LastLogTerm() {
+	if ballot.LastLogTerm < n.state.LastLogTerm() {
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
 
-	if ballot.LastLogTerm == n.state.logger.LastLogTerm() && ballot.LastLogIndex < n.state.logger.LastLogIndex() {
+	if ballot.LastLogTerm == n.state.LastLogTerm() && ballot.LastLogIndex < n.state.LastLogIndex() {
 		/* Candidate's log less up-to-date than ours*/
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
@@ -68,8 +68,8 @@ func (n *Node) StartElection() {
 	ballot := Ballot{
 		Term:         n.state.currentTerm,
 		CandidateId:  n.state.id,
-		LastLogIndex: n.state.logger.LastLogIndex(),
-		LastLogTerm:  n.state.logger.LastLogTerm(),
+		LastLogIndex: n.state.LastLogIndex(),
+		LastLogTerm:  n.state.LastLogTerm(),
 	}
 	n.mtx.Unlock()
 

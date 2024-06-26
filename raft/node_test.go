@@ -69,7 +69,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 		t.Errorf("Expected success")
 	}
 
-	log, _ := node.state.logger.Get(1)
+	log, _ := node.state.Get(1)
 	if log.Term != 2 || log.Command[0] != 'a' {
 		t.Errorf("Wrong term %d", log.Term)
 	}
@@ -130,7 +130,7 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		t.Errorf("Expected success")
 	}
 
-	log, _ := node.state.logger.Get(1)
+	log, _ := node.state.Get(1)
 	if log.Term != 3 || log.Command[0] != 'x' {
 		t.Errorf("Wrong term %d %s", log.Term, string(log.Command[0]))
 	}
@@ -168,7 +168,7 @@ func TestAppendEntriesFollowerNewLeader(t *testing.T) {
 		t.Errorf("Expected success")
 	}
 
-	log, _ := node.state.logger.Get(3)
+	log, _ := node.state.Get(3)
 	if log.Term != 3 || log.Command[0] != 'x' {
 		t.Errorf("Wrong term %d %s", log.Term, string(log.Command[0]))
 	}

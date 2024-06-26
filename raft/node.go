@@ -35,7 +35,7 @@ type NodeState struct {
 	id          uint64
 	currentTerm uint64
 	votedFor    uint64
-	logger      Logger
+	Logger
 
 	/* volatile state */
 	commitIndex uint64
@@ -107,7 +107,7 @@ func NewNode(id uint64) *Node {
 			lastApplied: 0,
 			nextIndex:   make(map[uint64]uint64),
 			matchIndex:  make(map[uint64]uint64),
-			logger: &InMemoryLogger{
+			Logger: &InMemoryLogger{
 				entries: []LogEntry{
 					{Term: 1, Index: 0, Command: []byte("init")},
 				},
@@ -150,7 +150,7 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	}
 
 	n.RestartHeartbeatTimer()
-	lg, err := n.state.logger.Get(req.PrevLogIndex)
+	lg, err := n.state.Get(req.PrevLogIndex)
 	if err != nil || lg.Term != req.PrevLogTerm {
 		log.Println("AppendEntries: Log doesn't match", err, lg.Term, req.PrevLogTerm)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
@@ -168,13 +168,13 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
 
-	//logs, _ := n.state.logger.GetRange(req.PrevLogIndex + 1)
-	if req.Entries[0].Index <= n.state.logger.LastLogIndex()-1 {
+	//logs, _ := n.state.GetRange(req.PrevLogIndex + 1)
+	if req.Entries[0].Index <= n.state.LastLogIndex()-1 {
 		for _, entry := range req.Entries {
-			if entry.Index > n.state.logger.LastLogIndex() {
+			if entry.Index > n.state.LastLogIndex() {
 				break
 			}
-			localLog, err := n.state.logger.Get(entry.Index)
+			localLog, err := n.state.Get(entry.Index)
 			if err != nil {
 				log.Println("shouldnt happen")
 				break
@@ -183,7 +183,7 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 			// So req.Entries[i] should always be valid / in bounds
 			if entry.Term != localLog.Term {
 				log.Println("Node % d AppendEntries: Log doesn't match, truncating from ", n.state.id, entry.Index, entry.Command)
-				n.state.logger.TruncateTo(entry.Index)
+				n.state.TruncateTo(entry.Index)
 				break
 			}
 		}
@@ -192,14 +192,14 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	//log.Printf("Node %d: AppendEntries: Appending new entries\n", n.state.id)
 	new := 0
 	for i, entry := range req.Entries {
-		_, err := n.state.logger.Get(entry.Index)
+		_, err := n.state.Get(entry.Index)
 		if err != nil {
 			new = i
 			break
 		}
 	}
 	log.Printf("Node %d: AppendEntries: Appending %d new entries new = %d, len reqent %d\n", n.state.id, len(req.Entries[new:]), new, len(req.Entries))
-	n.state.logger.Append(req.Entries[new:])
+	n.state.Append(req.Entries[new:])
 
 	return AppendEntriesResponse{n.state.currentTerm, true}
 }
