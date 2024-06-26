@@ -14,8 +14,6 @@ type ClientRequestResponse struct {
 
 func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse {
 	/* Append the command to the log */
-	n.mtx.Lock()
-	defer n.mtx.Unlock()
 	log.Printf("Node %d received client request %s\n", n.state.id, string(request.Command))
 	if n.role != Leader {
 		peer, err := n.GetLeader()

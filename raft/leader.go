@@ -13,7 +13,6 @@ type FollowerReplicationState struct {
 
 func (n *Node) leaderHeartbeat() {
 	/* Send AppendEntries RPC to all peers */
-	n.mtx.Lock()
 	/*
 		request := AppendEntriesRequest{
 			Term:         n.state.currentTerm,
@@ -33,7 +32,6 @@ func (n *Node) leaderHeartbeat() {
 			n.appendEntriesToPeer(p, channel)
 		}(peer)
 	}
-	n.mtx.Unlock()
 	n.RestartHeartbeatTimerLeader()
 }
 

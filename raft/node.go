@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"math/rand"
-	"sync"
 	"time"
 )
 
@@ -73,7 +72,6 @@ type Node struct {
 	Peers []Peer
 
 	electionChannel     chan BallotResponse
-	mtx                 sync.Mutex
 	timer               *time.Timer
 	timerBackoffCounter int
 
@@ -189,7 +187,6 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 		}
 	}
 
-	//log.Printf("Node %d: AppendEntries: Appending new entries\n", n.state.id)
 	new := 0
 	for i, entry := range req.Entries {
 		_, err := n.state.Get(entry.Index)
@@ -207,7 +204,6 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 func (n *Node) RestartElectionTimer() {
 	/* Restart the election timer */
 	if !n.timer.Stop() {
-
 	}
 	t := time.Duration(1) * time.Second
 	n.timer.Reset(t)

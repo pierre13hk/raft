@@ -57,7 +57,6 @@ func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
 
 func (n *Node) StartElection() {
 	log.Printf("Node %d starting election\n", n.state.id)
-	n.mtx.Lock()
 	n.StopTimer()
 	n.state.currentTerm += 1
 	n.state.votedFor = n.state.id
@@ -71,7 +70,6 @@ func (n *Node) StartElection() {
 		LastLogIndex: n.state.LastLogIndex(),
 		LastLogTerm:  n.state.LastLogTerm(),
 	}
-	n.mtx.Unlock()
 
 	/* Send RequestVote rpc to all other nodes */
 
