@@ -56,17 +56,21 @@ type NodeConfig struct {
 }
 
 type NodeChannels struct {
+	requestVoteChannel         chan Ballot
 	requestVoteResponseChannel chan BallotResponse
 	appendEntriesResponse      chan AppendEntriesResponse
 }
-
+type ElectionState struct {
+	votesReceived int
+	electionTerm  uint64
+}
 type Node struct {
 	state NodeState
 	role  Role
 
 	StateMachine StateMachine
-	RaftRPC      RaftRPC
-	Peers        []Peer
+	RaftRPC
+	Peers []Peer
 
 	electionChannel     chan BallotResponse
 	mtx                 sync.Mutex
@@ -74,6 +78,7 @@ type Node struct {
 	timerBackoffCounter int
 
 	leaderReplicationState map[uint64]FollowerReplicationState
+	electionState          ElectionState
 	channels               NodeChannels
 	run                    bool
 }
@@ -223,18 +228,11 @@ func (n *Node) nodeDaemon() {
 	for n.run {
 		select {
 		case <-n.timer.C:
-			// Election timeout
-			if n.role == Leader {
-				n.leaderHeartbeat()
-			} else {
-				log.Printf("Node %d : Election timeout\n", n.state.id)
-				n.StartElection()
-			}
-		case response := <-n.channels.requestVoteResponseChannel:
-			log.Printf("Node %d: Received vote response\n", response.Term)
-			continue
-		case response := <-n.channels.appendEntriesResponse:
-			log.Printf("Node %d: Received append entries response\n", response.Term)
+			n.handleTimeout()
+		case ballot := <-n.channels.requestVoteChannel:
+			n.HandleVoteRequest(ballot)
+		case ballotResponse := <-n.channels.requestVoteResponseChannel:
+			n.HandleVoteRequestResponse(ballotResponse)
 		}
 	}
 }
@@ -249,4 +247,8 @@ func (n *Node) GetLeader() (Peer, error) {
 		}
 	}
 	return Peer{}, errors.New("No leader")
+}
+
+func (n *Node) handleTimeout() {
+
 }

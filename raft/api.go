@@ -24,7 +24,7 @@ func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse
 			return ClientRequestResponse{Success: false}
 		}
 		log.Printf("Node %d: Forwarding request to leader %d\n", n.state.id, peer.Id)
-		resp, err := n.RaftRPC.ForwardToLeaderRPC(peer, request)
+		resp, err := n.ForwardToLeaderRPC(peer, request)
 		if err != nil {
 			return ClientRequestResponse{Success: false}
 		}

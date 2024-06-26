@@ -98,7 +98,7 @@ func (n *Node) appendEntriesToPeer(peer Peer, responseChannel chan bool) {
 		Entries:      entries,
 		LeaderCommit: n.state.commitIndex,
 	}
-	response, _ := n.RaftRPC.AppendEntriesRPC(peer, request)
+	response, _ := n.AppendEntriesRPC(peer, request)
 	if response.Success {
 		peerState.nextIndex += uint64(len(entries))
 		peerState.matchIndex = peerState.nextIndex - 1

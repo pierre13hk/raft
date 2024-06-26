@@ -58,10 +58,10 @@ func NewInMemoryRaftRPC() *InMemoryRaftRPC {
 	}
 }
 
-func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot, c chan BallotResponse) error {
+func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot) (BallotResponse, error) {
 	peer := r.Peers[p.Id]
 	if peer == nil {
-		return errors.New("Peer not found")
+		return BallotResponse{}, errors.New("Peer not found")
 	}
 
 	// Simulate network latency
@@ -73,9 +73,9 @@ func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot, c chan BallotRes
 			// the election is over.
 		}
 	}()
-	resp := peer.RequestVote(ballot)
-	c <- resp
-	return nil
+	response := peer.HandleVoteRequest(ballot)
+
+	return response, nil
 }
 
 func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (AppendEntriesResponse, error) {

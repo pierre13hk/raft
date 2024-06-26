@@ -18,10 +18,11 @@ type BallotResponse struct {
 	VoteGranted bool
 }
 
-func (n *Node) RequestVote(ballot Ballot) BallotResponse {
+func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
+	/*
+	 * Run by a node when it receives a RequestVote rpc
+	 */
 	log.Printf("Node %d received RequestVote from %d, local term %d vs ballot term %d\n", n.state.id, ballot.CandidateId, n.state.currentTerm, ballot.Term)
-	n.mtx.Lock()
-	defer n.mtx.Unlock()
 	/* We have a newer term */
 	if ballot.Term < n.state.currentTerm {
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
@@ -80,7 +81,7 @@ func (n *Node) StartElection() {
 			continue
 		}
 		go func(p Peer) {
-			err := n.RaftRPC.RequestVoteRPC(p, ballot, n.electionChannel)
+			_, err := n.RequestVoteRPC(p, ballot)
 			if err != nil {
 				log.Printf("Error sending RequestVote rpc to %d: %v", p.Id, err)
 			}
@@ -89,37 +90,26 @@ func (n *Node) StartElection() {
 	log.Printf("Node %d sent RequestVote rpcs, collecting votes\n", n.state.id)
 }
 
-func (n *Node) CountVotes() {
-	channel := n.electionChannel
-	n.RestartElectionTimer()
-	votes := 1
-	for range n.Peers {
-		if n.role != Candidate {
-			/* We lost the election */
-			close(channel)
-			return
-		}
-		resp, open := <-channel
-		if !open {
-			/* Our channel is closed, the election is over */
-			n.role = Follower
-			n.state.votedFor = 0
-			n.RestartElectionTimer()
-			return
-		}
+func (n *Node) requestVote(peer Peer, ballot Ballot) {
+	ballotResponse, err := n.RequestVoteRPC(peer, ballot)
+	if err != nil {
+		n.channels.requestVoteResponseChannel <- ballotResponse
+	} else {
+		log.Printf("Error sending RequestVote rpc to %d: %v", peer.Id, err)
+	}
+}
 
-		if resp.VoteGranted && resp.Term == n.state.currentTerm {
-			n.mtx.Lock()
-			votes += 1
-			n.mtx.Unlock()
-		}
-		if votes > len(n.Peers)/2 {
-			/* Won the election */
-			n.role = Leader
-			n.timer.Stop()
-			close(channel)
-			log.Printf("Node %d won the election\n", n.state.id)
-			return
+func (n *Node) HandleVoteRequestResponse(ballot BallotResponse) {
+	/*
+	 * Run by a candidate to collect votes and determine if it has won the election
+	 */
+	if ballot.Term == n.electionState.electionTerm {
+		if ballot.VoteGranted {
+			n.electionState.votesReceived += 1
+			if n.electionState.votesReceived > len(n.Peers)/2 {
+				/* Won the election */
+			}
 		}
 	}
+	// if the ballot term is not in the current election term, ignore the vote
 }
