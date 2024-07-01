@@ -14,7 +14,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 			{Term: 1, Index: 1, Command: []byte("init")},
 		},
 	}
-	node.state.logger = logger
+	node.state.Logger = logger
 
 	// The first data append entries request
 	// sent bn the leader to the followers
@@ -48,7 +48,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 			{Term: 2, Index: 1, Command: []byte("a")},
 		},
 	}
-	node.state.logger = logger
+	node.state.Logger = logger
 
 	// The first data append entries request
 	// sent bn the leader to the followers
@@ -110,7 +110,7 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 			{Term: 2, Index: 3, Command: []byte("c")},
 		},
 	}
-	node.state.logger = logger
+	node.state.Logger = logger
 
 	req := AppendEntriesRequest{
 		Term:         3,
@@ -150,7 +150,7 @@ func TestAppendEntriesFollowerNewLeader(t *testing.T) {
 			{Term: 2, Index: 2, Command: []byte("b")},
 		},
 	}
-	node.state.logger = logger
+	node.state.Logger = logger
 
 	req := AppendEntriesRequest{
 		Term:         3,

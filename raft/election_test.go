@@ -34,7 +34,7 @@ func TestRequestVote(t *testing.T) {
 		LastLogTerm:  0,
 	}
 
-	resp := node1.RequestVote(b)
+	resp := node1.HandleVoteRequest(b)
 	if resp.VoteGranted {
 		t.Errorf("Expected vote not granted")
 	}
@@ -68,7 +68,8 @@ func TestStartElection(t *testing.T) {
 	node4.RaftRPC = rpc
 	node5.RaftRPC = rpc
 
-	go node1.StartElection()
+	node1.Start()
+	node1.StartElection()
 	time.Sleep(1 * time.Second)
 	if node1.role != Candidate {
 		t.Errorf("Expected role to be Candidate, was %s", node1.role.String())
@@ -136,8 +137,6 @@ func TestStartElectionRetry(t *testing.T) {
 func TestCandidateBeaten(t *testing.T) {
 	node := NewNode(1)
 
-	node.StartElection()
-
 	b := Ballot{
 		Term:         3,
 		CandidateId:  2,
@@ -145,7 +144,7 @@ func TestCandidateBeaten(t *testing.T) {
 		LastLogTerm:  1,
 	}
 
-	resp := node.RequestVote(b)
+	resp := node.HandleVoteRequest(b)
 	if !resp.VoteGranted {
 		t.Errorf("Expected vote granted")
 	}

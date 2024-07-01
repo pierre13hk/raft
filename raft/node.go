@@ -116,8 +116,8 @@ func NewNode(id uint64) *Node {
 		RaftRPC:      &InMemoryRaftRPC{},
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
 		channels: NodeChannels{
-			requestVoteResponseChannel: make(chan BallotResponse),
-			appendEntriesResponse:      make(chan AppendEntriesResponse),
+			requestVoteResponseChannel: make(chan BallotResponse, 10),
+			appendEntriesResponse:      make(chan AppendEntriesResponse, 10),
 		},
 	}
 }
@@ -246,5 +246,5 @@ func (n *Node) GetLeader() (Peer, error) {
 }
 
 func (n *Node) handleTimeout() {
-
+	log.Println("Node ", n.state.id, " timeout")
 }

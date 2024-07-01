@@ -59,11 +59,12 @@ func (n *Node) StartElection() {
 	log.Printf("Node %d starting election\n", n.state.id)
 	n.StopTimer()
 	n.state.currentTerm += 1
+	n.electionState.electionTerm = n.state.currentTerm
+	n.electionState.votesReceived = 1
 	n.state.votedFor = n.state.id
 	n.role = Candidate
 	n.state.save()
 
-	n.role = Candidate
 	ballot := Ballot{
 		Term:         n.state.currentTerm,
 		CandidateId:  n.state.id,
@@ -78,22 +79,17 @@ func (n *Node) StartElection() {
 		if peer.Id == n.state.id {
 			continue
 		}
-		go func(p Peer) {
-			_, err := n.RequestVoteRPC(p, ballot)
-			if err != nil {
-				log.Printf("Error sending RequestVote rpc to %d: %v", p.Id, err)
-			}
-		}(peer)
+		go n.requestVote(peer, ballot)
 	}
 	log.Printf("Node %d sent RequestVote rpcs, collecting votes\n", n.state.id)
 }
 
 func (n *Node) requestVote(peer Peer, ballot Ballot) {
 	ballotResponse, err := n.RequestVoteRPC(peer, ballot)
-	if err != nil {
+	if err == nil {
 		n.channels.requestVoteResponseChannel <- ballotResponse
 	} else {
-		log.Printf("Error sending RequestVote rpc to %d: %v", peer.Id, err)
+		log.Println("Error sending RequestVote rpc to ", peer.Id, err)
 	}
 }
 
@@ -106,6 +102,9 @@ func (n *Node) HandleVoteRequestResponse(ballot BallotResponse) {
 			n.electionState.votesReceived += 1
 			if n.electionState.votesReceived > len(n.Peers)/2 {
 				/* Won the election */
+				log.Printf("Node %d won the election\n", n.state.id)
+				n.role = Leader
+
 			}
 		}
 	}
