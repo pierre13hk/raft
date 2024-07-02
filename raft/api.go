@@ -34,7 +34,7 @@ func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse
 			Index:   n.state.LastLogIndex() + 1,
 			Command: request.Command,
 		}})
-		ok := n.appendEntries()
-		return ClientRequestResponse{Success: ok}
+		n.appendEntries()
+		return ClientRequestResponse{Success: true}
 	}
 }

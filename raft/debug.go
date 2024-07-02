@@ -34,7 +34,17 @@ func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
 	return l.entries[index], nil
 }
 
-func (l *InMemoryLogger) GetRange(start uint64) ([]LogEntry, error) {
+func (l *InMemoryLogger) GetRange(start uint64, end uint64) ([]LogEntry, error) {
+	if start < 0 || start >= uint64(len(l.entries)) {
+		return nil, errors.New("No such entry")
+	}
+	if end < 0 || end > uint64(len(l.entries))+1 {
+		return nil, errors.New("No such entry")
+	}
+	return l.entries[start:end], nil
+}
+
+func (l *InMemoryLogger) GetFrom(start uint64) ([]LogEntry, error) {
 	if uint64(len(l.entries)) < start {
 		return nil, errors.New("No such entry")
 	}
@@ -128,7 +138,7 @@ func (n *DebugNode) Start() {
 
 func (n *DebugNode) Stop() []LogEntry {
 	n.Node.Stop()
-	entries, _ := n.Node.state.GetRange(1)
+	entries, _ := n.Node.state.GetFrom(1)
 	return entries
 }
 
