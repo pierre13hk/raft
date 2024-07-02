@@ -41,6 +41,12 @@ func (n *Node) RestartHeartbeatTimerLeader() {
 	n.timer.Reset(time.Duration(500) * time.Millisecond)
 }
 
+func (n *Node) becomeLeader() {
+	/* Become the leader */
+	n.role = Leader
+	n.leaderDaemon()
+}
+
 func (n *Node) leaderDaemon() {
 	// clear the map and initialize it.
 	n.leaderHeartbeat()
@@ -50,6 +56,10 @@ func (n *Node) leaderDaemon() {
 			nextIndex:  n.state.LastLogIndex() + 1,
 			matchIndex: 0,
 		}
+	}
+	for n.role == Leader {
+		n.leaderHeartbeat()
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -73,7 +83,7 @@ func (n *Node) appendEntries() bool {
 	log.Printf("Node %d : Got all responses\n", n.state.id)
 	if replicatedCount > len(n.Peers)/2 {
 		/* Majority replicated */
-		n.state.commitIndex = n.largestCommitedIndex(&n.leaderReplicationState)
+		n.state.commitIndex = n.largestCommittedIndex(&n.leaderReplicationState)
 		return true
 	}
 	return false
@@ -109,8 +119,8 @@ func (n *Node) appendEntriesToPeer(peer Peer, responseChannel chan bool) {
 	}
 }
 
-func (n *Node) largestCommitedIndex(p *map[uint64]FollowerReplicationState) uint64 {
-	/* Return the largest commit index */
+func (n *Node) largestCommittedIndex(p *map[uint64]FollowerReplicationState) uint64 {
+	/* Return the largest committed index */
 	matchIndexes := make([]uint64, len(*p))
 	i := 0
 	for _, peer := range *p {

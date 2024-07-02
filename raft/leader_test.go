@@ -16,13 +16,13 @@ func TestLargestCommitedIndex(t *testing.T) {
 	node.role = Leader
 	node.leaderReplicationState = replicationState
 
-	commitIndex := node.largestCommitedIndex(&replicationState)
+	commitIndex := node.largestCommittedIndex(&replicationState)
 	if commitIndex != 2 {
 		t.Fatalf("expected commit index to be 2, got %d", commitIndex)
 	}
 
 	delete(replicationState, 5)
-	commitIndex = node.largestCommitedIndex(&replicationState)
+	commitIndex = node.largestCommittedIndex(&replicationState)
 	if commitIndex != 1 {
 		t.Fatalf("expected commit index to be 1, got %d", commitIndex)
 	}

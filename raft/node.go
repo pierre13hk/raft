@@ -221,6 +221,7 @@ func (n *Node) StopTimer() {
 
 func (n *Node) nodeDaemon() {
 	/* Timer daemon */
+	n.RestartElectionTimer()
 	for n.run {
 		select {
 		case <-n.timer.C:
@@ -246,5 +247,11 @@ func (n *Node) GetLeader() (Peer, error) {
 }
 
 func (n *Node) handleTimeout() {
-	log.Println("Node ", n.state.id, " timeout")
+	if n.role == Leader {
+		n.appendEntries()
+		return
+	}
+
+	n.StartElection()
+
 }
