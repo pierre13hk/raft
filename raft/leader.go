@@ -1,7 +1,6 @@
 package raft
 
 import (
-	"log"
 	"slices"
 	"time"
 )
@@ -48,6 +47,7 @@ func (n *Node) leaderDaemon() {
 	}
 	for n.role == Leader {
 		time.Sleep(500 * time.Millisecond)
+		n.appendEntries()
 	}
 }
 

@@ -50,7 +50,7 @@ func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
 	n.state.currentTerm = ballot.Term
 	n.role = Follower
 	go n.state.save()
-	n.RestartElectionTimer()
+	n.RestartHeartbeatTimer()
 	log.Printf("Node %d voted for %d\n", n.state.id, ballot.CandidateId)
 	return BallotResponse{Term: ballot.Term, VoteGranted: true}
 }
@@ -82,6 +82,7 @@ func (n *Node) StartElection() {
 		go n.requestVote(peer, ballot)
 	}
 	log.Printf("Node %d sent RequestVote rpcs, collecting votes\n", n.state.id)
+	n.RestartElectionTimer()
 }
 
 func (n *Node) requestVote(peer Peer, ballot Ballot) {
@@ -103,10 +104,19 @@ func (n *Node) HandleVoteRequestResponse(ballot BallotResponse) {
 			if n.electionState.votesReceived > len(n.Peers)/2 {
 				/* Won the election */
 				log.Printf("Node %d won the election\n", n.state.id)
-				n.role = Leader
+				n.becomeLeader()
 
 			}
 		}
 	}
 	// if the ballot term is not in the current election term, ignore the vote
+}
+
+func (n *Node) loseElection() {
+	/*
+	 * Run by a candidate when it loses the election
+	 */
+	log.Printf("Node %d lost the election\n", n.state.id)
+	n.role = Follower
+	n.RestartElectionTimer()
 }

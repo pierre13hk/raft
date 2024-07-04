@@ -69,7 +69,6 @@ func TestAppendEntriesToPeerLate(t *testing.T) {
 
 }
 
-
 func TestAppendEntriesToPeerOnTime(t *testing.T) {
 	/*
 		Test the case where the leader sends an append entries request to a peer

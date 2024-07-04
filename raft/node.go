@@ -102,7 +102,8 @@ func NewNode(id uint64) *Node {
 		RaftRPC:      &InMemoryRaftRPC{},
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
 		channels: NodeChannels{
-			requestVoteResponseChannel:   make(chan BallotResponse, 10),
+			requestVoteChannel:           make(chan Ballot, 100),
+			requestVoteResponseChannel:   make(chan BallotResponse, 100),
 			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 10),
 		},
 	}
@@ -120,21 +121,32 @@ func (n *Node) Stop() {
 }
 
 func (n *Node) RestartElectionTimer() {
-	/* Restart the election timer */
 	if !n.timer.Stop() {
+		select {
+		case <-n.timer.C:
+		default:
+		}
 	}
-	t := time.Duration(1) * time.Second
-	n.timer.Reset(t)
+	t := rand.Intn(4000)
+	n.timer.Reset(time.Duration(t) * time.Millisecond)
+
 }
 
 func (n *Node) RestartHeartbeatTimer() {
 	/* Restart the heartbeat timer */
-	n.timer.Stop()
+	if !n.timer.Stop() {
+		<-n.timer.C
+	}
 	n.timer.Reset(time.Duration(1) * time.Second)
 }
 
 func (n *Node) StopTimer() {
-	n.timer.Stop()
+	if !n.timer.Stop() {
+		select {
+		case <-n.timer.C:
+		default:
+		}
+	}
 }
 
 func (n *Node) nodeDaemon() {
@@ -169,7 +181,10 @@ func (n *Node) handleTimeout() {
 		n.appendEntries()
 		return
 	}
-
+	if n.role == Candidate {
+		n.loseElection()
+		return
+	}
+	// follower
 	n.StartElection()
-
 }
