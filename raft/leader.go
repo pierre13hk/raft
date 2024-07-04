@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"log"
 	"slices"
 	"time"
 )
