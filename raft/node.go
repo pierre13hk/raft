@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -79,6 +80,8 @@ type Node struct {
 	electionState          ElectionState
 	channels               NodeChannels
 	run                    bool
+
+	*sync.Mutex
 }
 
 func NewNode(id uint64) *Node {
@@ -106,6 +109,7 @@ func NewNode(id uint64) *Node {
 			requestVoteResponseChannel:   make(chan BallotResponse, 100),
 			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 10),
 		},
+		Mutex: &sync.Mutex{},
 	}
 }
 
@@ -121,12 +125,7 @@ func (n *Node) Stop() {
 }
 
 func (n *Node) RestartElectionTimer() {
-	if !n.timer.Stop() {
-		select {
-		case <-n.timer.C:
-		default:
-		}
-	}
+	n.StopTimer()
 	t := rand.Intn(4000)
 	n.timer.Reset(time.Duration(t) * time.Millisecond)
 
@@ -134,10 +133,14 @@ func (n *Node) RestartElectionTimer() {
 
 func (n *Node) RestartHeartbeatTimer() {
 	/* Restart the heartbeat timer */
-	if !n.timer.Stop() {
-		<-n.timer.C
-	}
+	n.StopTimer()
 	n.timer.Reset(time.Duration(1) * time.Second)
+}
+
+func (n *Node) RestartLeaderHeartBeatTimer() {
+	/* Restart the heartbeat timer */
+	n.StopTimer()
+	n.timer.Reset(time.Duration(200) * time.Millisecond)
 }
 
 func (n *Node) StopTimer() {
