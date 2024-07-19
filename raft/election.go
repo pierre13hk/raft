@@ -28,17 +28,20 @@ func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
 
-	if n.state.votedFor != 0 {
+	if n.state.votedFor != 0 && n.state.votedFor != n.state.id {
 		/* Already voted for someone else */
+		log.Printf("Node %d received RequestVote from %d,already voted\n", n.state.id, ballot.CandidateId)
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
 
 	if ballot.LastLogTerm < n.state.LastLogTerm() {
+		log.Printf("Node %d received RequestVote from %d, ,term log not up to date\n", n.state.id, ballot.CandidateId)
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
 
 	if ballot.LastLogTerm == n.state.LastLogTerm() && ballot.LastLogIndex < n.state.LastLogIndex() {
 		/* Candidate's log less up-to-date than ours*/
+		log.Printf("Node %d received RequestVote from %d,log index late \n", n.state.id, ballot.CandidateId)
 		return BallotResponse{Term: n.state.currentTerm, VoteGranted: false}
 	}
 	/* Vote for the candidate
@@ -118,5 +121,6 @@ func (n *Node) loseElection() {
 	 */
 	log.Printf("Node %d lost the election\n", n.state.id)
 	n.role = Follower
-	n.RestartElectionTimer()
+	n.state.votedFor = 0
+	n.RestartHeartbeatTimer()
 }

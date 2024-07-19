@@ -136,6 +136,9 @@ func TestStartElectionRetry(t *testing.T) {
 
 func TestCandidateBeaten(t *testing.T) {
 	node := NewNode(1)
+	node.state.currentTerm = 1
+	node.role = Candidate
+	node.state.votedFor = 1
 
 	b := Ballot{
 		Term:         3,
