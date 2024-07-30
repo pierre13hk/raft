@@ -2,6 +2,7 @@ package raft
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -28,6 +29,10 @@ func (l *InMemoryLogger) LastLogIndex() uint64 {
 }
 
 func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
+	if index >= uint64(len(l.entries)) {
+		str := fmt.Sprintf("No such entry, len in %d, index is %d", len(l.entries), index)
+		return LogEntry{}, errors.New(str)
+	}
 	if index < 0 || index >= uint64(len(l.entries)) {
 		return LogEntry{}, errors.New("No such entry")
 	}
@@ -87,7 +92,9 @@ func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (Ap
 	if peer == nil {
 		return AppendEntriesResponse{}, errors.New("Peer not found")
 	}
-
+	if rand.Float32() > 0.9 {
+		return AppendEntriesResponse{}, errors.New("Random error")
+	}
 	//time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 
