@@ -51,7 +51,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 	node.state.Logger = logger
 
 	// The first data append entries request
-	// sent bn the leader to the followers
+	// sent by the leader to the followers
 	// The leader's term is 2 and he has not yet committed any data.
 	req1 := AppendEntriesRequest{
 		Term:         2,
@@ -80,16 +80,16 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 	req2 := AppendEntriesRequest{
 		Term:         2,
 		LeaderId:     123,
-		PrevLogIndex: 2,
+		PrevLogIndex: 3,
 		PrevLogTerm:  2,
 		Entries: []LogEntry{
-			{Term: 2, Index: 1, Command: []byte("b")},
+			{Term: 2, Index: 4, Command: []byte("b")},
 		},
 		LeaderCommit: 1,
 	}
 
 	resp = node.recvAppendEntries(req2)
-	if !resp.Success {
+	if resp.Success {
 		t.Errorf("Expected failure")
 	}
 

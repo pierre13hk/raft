@@ -46,20 +46,33 @@ func (n *Node) leaderDaemon() {
 			matchIndex: 0,
 		}
 	}
-	for n.role == Leader {
-		time.Sleep(500 * time.Millisecond)
-		n.appendEntries()
-	}
+	n.appendEntries()
+	n.RestartHeartbeatTimerLeader()
 }
 
 func (n *Node) appendEntries() {
 	/* Replicate log entries to all peers */
-
+	replicated := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
 			continue
 		}
-		go n.appendEntriesToPeer(peer)
+		go n.appendEntriesToPeer(peer, replicated)
+	}
+	replicated_count := 0
+	for _, peer := range n.Peers {
+		if peer.Id == n.state.id {
+			continue
+		}
+		ok := <-replicated
+		if ok {
+			replicated_count += 1
+		}
+	}
+	if replicated_count > len(n.Peers)/2 {
+		// More than half of the peers have replicated the log entries
+		// Commit the log entries
+		n.state.commitIndex = n.state.LastLogIndex()
 	}
 }
 
@@ -102,14 +115,39 @@ func (n *Node) getAppendEntryRequest(peer Peer) AppendEntriesRequest {
 	return request
 }
 
-func (n *Node) appendEntriesToPeer(peer Peer) {
+func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 	/* Append entries to a peer */
+	n.Lock()
 	request := n.getAppendEntryRequest(peer)
+	n.Unlock()
 	response, err := n.RaftRPC.AppendEntriesRPC(peer, request)
+	n.Lock()
+	defer n.Unlock()
 	if err == nil {
-		n.channels.appendEntriesResponseChannel <- response
+		state := n.leaderReplicationState[peer.Id]
+		if response.Success {
+			replicated <- true
+			if len(request.Entries) == 0 {
+				// heartbeat
+				return
+			}
+			last_replicated_log_index := request.Entries[len(request.Entries)-1].Index
+			state.nextIndex = last_replicated_log_index + 1
+			state.matchIndex = last_replicated_log_index
+			n.leaderReplicationState[peer.Id] = state
+		} else {
+			// handle term difference later
+			if state.nextIndex > 0 {
+				state.nextIndex -= 1
+			} else {
+				log.Panic("Node ", n.state.id, " can't find a common log entry with peer ", peer.Id)
+			}
+			n.leaderReplicationState[peer.Id] = state
+			replicated <- false
+		}
 	} else {
-		// Handle the error
+		replicated <- false
+		log.Printf("Node %d: network error sending entries to peer %dd\n", n.state.id, peer.Id)
 	}
 
 }
