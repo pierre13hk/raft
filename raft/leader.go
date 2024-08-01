@@ -50,7 +50,7 @@ func (n *Node) leaderDaemon() {
 	n.RestartHeartbeatTimerLeader()
 }
 
-func (n *Node) appendEntries() {
+func (n *Node) appendEntries() bool {
 	/* Replicate log entries to all peers */
 	replicated := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
@@ -73,6 +73,10 @@ func (n *Node) appendEntries() {
 		// More than half of the peers have replicated the log entries
 		// Commit the log entries
 		n.state.commitIndex = n.state.LastLogIndex()
+		return true
+	} else {
+		log.Println("Node ", n.state.id, " couldn't replicate log entries to majority of peers")
+		return false
 	}
 }
 
