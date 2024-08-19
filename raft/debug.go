@@ -12,12 +12,14 @@ type InMemoryLogger struct {
 	entries []LogEntry
 }
 
-func (l *InMemoryLogger) TruncateFrom(index uint64) {
+func (l *InMemoryLogger) TruncateFrom(index uint64) error {
 	l.entries = l.entries[index:]
+	return nil
 }
 
-func (l *InMemoryLogger) TruncateTo(index uint64) {
+func (l *InMemoryLogger) TruncateTo(index uint64) error {
 	l.entries = l.entries[:index]
+	return nil
 }
 
 func (l *InMemoryLogger) LastLogTerm() uint64 {
@@ -59,6 +61,10 @@ func (l *InMemoryLogger) GetFrom(start uint64) ([]LogEntry, error) {
 func (l *InMemoryLogger) Append(entries []LogEntry) error {
 	l.entries = append(l.entries, entries...)
 
+	return nil
+}
+
+func (l *InMemoryLogger) Initialize(fileName string) error {
 	return nil
 }
 
@@ -107,6 +113,12 @@ func (r *InMemoryRaftRPC) ForwardToLeaderRPC(peer Peer, req ClientRequest) (Clie
 	// Simulate network latency
 	node := r.Peers[peer.Id]
 	return node.clientRequestHandler(req), nil
+}
+
+func (r *InMemoryRaftRPC) JoinClusterRPC(peer Peer, req JoinClusterRequest) (JoinClusterResponse, error) {
+	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+	// Simulate network latency
+	return JoinClusterResponse{}, errors.New("Not implemented")
 }
 
 /* Debug StateMachine */

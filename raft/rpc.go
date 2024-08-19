@@ -13,4 +13,6 @@ type RaftRPC interface {
 	AppendEntriesRPC(peer Peer, req AppendEntriesRequest) (AppendEntriesResponse, error)
 	// Forward a client request to the leader
 	ForwardToLeaderRPC(peer Peer, req ClientRequest) (ClientRequestResponse, error)
+	// Send a join cluster request to a peer
+	JoinClusterRPC(peer Peer, req JoinClusterRequest) (JoinClusterResponse, error)
 }

@@ -38,3 +38,11 @@ func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse
 		return ClientRequestResponse{Success: true}
 	}
 }
+
+type JoinClusterRequest struct {
+	NodeId uint64
+}
+
+type JoinClusterResponse struct {
+	Success bool
+}
