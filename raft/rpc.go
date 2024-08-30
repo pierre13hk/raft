@@ -3,10 +3,15 @@ package raft
 //"fmt"
 
 type Peer struct {
-	Id uint64
+	Id   uint64
+	Addr string
 }
 
 type RaftRPC interface {
+	// Register a node with the RPC layer
+	RegisterNode(node *Node)
+	// Start the RPC server
+	Start()
 	// Send a request to a peer to vote for us
 	RequestVoteRPC(peer Peer, ballot Ballot) (BallotResponse, error)
 	// Ask a peer to append entries to their log

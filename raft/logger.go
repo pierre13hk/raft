@@ -30,7 +30,7 @@ const (
 type LogEntry struct {
 	Term    uint64
 	Index   uint64
-	Type    uint16
+	Type    uint32
 	Command []byte
 }
 
@@ -45,12 +45,10 @@ func StringToLogEntry(s string) (LogEntry, error) {
 	if n != 4 || err != nil {
 		return LogEntry{}, FileError
 	}
-	return LogEntry{Term: term, Index: index, Type: uint16(logType), Command: []byte(command)}, nil
+	return LogEntry{Term: term, Index: index, Type: uint32(logType), Command: []byte(command)}, nil
 }
 
 type Logger interface {
-	// Truncate the log from the given index to the end
-	TruncateFrom(index uint64) error
 	// Truncate the log from the beginning to the given index (exclusive)
 	TruncateTo(index uint64) error
 	// Get the term of the last log entry
@@ -86,34 +84,6 @@ func NewLoggerImplem() *LoggerImplem {
 	}
 }
 
-func (l *LoggerImplem) TruncateFrom(index uint64) error {
-	startIndex := l.inMemEntries[0].Index
-	endIndex := l.inMemEntries[len(l.inMemEntries)-1].Index
-	if index < startIndex || index > endIndex {
-		return InvalidIndexError
-	}
-	startOffset := index - startIndex
-	l.inMemEntries = l.inMemEntries[startOffset:]
-	wroutContent := make([]byte, 0, 1024)
-	for _, entry := range l.inMemEntries {
-		line := fmt.Sprintf("%d%d%d%s%c\n", entry.Term, entry.Index, entry.Type, string(entry.Command), l.logSeperatorChar)
-		wroutContent = append(wroutContent, line...)
-	}
-	newLogFile, err := os.Create(l.logFile.Name() + ".tmp")
-	if err != nil {
-		return FileError
-	}
-	defer newLogFile.Close()
-	_, err = newLogFile.Write(wroutContent)
-	if err != nil {
-		return FileError
-	}
-	_, err = io.Copy(newLogFile, l.logFile)
-	if err != nil {
-		return FileError
-	}
-	return nil
-}
 
 func (l *LoggerImplem) TruncateTo(index uint64) error {
 	startIndex := l.inMemEntries[0].Index

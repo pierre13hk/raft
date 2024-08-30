@@ -6,25 +6,6 @@ import (
 	"testing"
 )
 
-func TestTruncateStartDebug(t *testing.T) {
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("a")},
-			{Term: 1, Index: 1, Command: []byte("b")},
-			{Term: 1, Index: 2, Command: []byte("c")},
-		},
-	}
-
-	logger.TruncateFrom(1)
-
-	if len(logger.entries) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(logger.entries))
-	}
-
-	if logger.entries[0].Index != 1 {
-		t.Fatalf("expected first entry to be index 2, got %d", logger.entries[0].Index)
-	}
-}
 
 func TestTruncateEndDebug(t *testing.T) {
 	logger := &InMemoryLogger{

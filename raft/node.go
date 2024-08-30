@@ -65,6 +65,7 @@ type ElectionState struct {
 	electionTerm  uint64
 }
 type Node struct {
+	Addr  string
 	state NodeState
 	role  Role
 
@@ -84,8 +85,9 @@ type Node struct {
 	*sync.Mutex
 }
 
-func NewNode(id uint64) *Node {
-	return &Node{
+func NewNode(id uint64, addr string, rpcImplem RaftRPC) *Node {
+	node := Node{
+		Addr: addr,
 		state: NodeState{
 			id:          id,
 			currentTerm: 1,
@@ -96,13 +98,13 @@ func NewNode(id uint64) *Node {
 			matchIndex:  make(map[uint64]uint64),
 			Logger: &InMemoryLogger{
 				entries: []LogEntry{
-					{Term: 1, Index: 0, Command: []byte("init")},
+					{Term: 0, Index: 0, Command: []byte("init")},
 				},
 			},
 		},
 		role:         Follower,
 		StateMachine: &DebugStateMachine{},
-		RaftRPC:      &InMemoryRaftRPC{},
+		RaftRPC:      rpcImplem,
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
 		channels: NodeChannels{
 			requestVoteChannel:           make(chan Ballot, 100),
@@ -111,6 +113,9 @@ func NewNode(id uint64) *Node {
 		},
 		Mutex: &sync.Mutex{},
 	}
+	node.RaftRPC.RegisterNode(&node)
+	node.RaftRPC.Start()
+	return &node
 }
 
 func (n *Node) Start() {

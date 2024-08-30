@@ -8,7 +8,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := NewNode(1)
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
 	logger := &InMemoryLogger{
 		entries: []LogEntry{
 			{Term: 1, Index: 1, Command: []byte("init")},
@@ -30,7 +30,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.recvAppendEntries(req1)
+	resp := node.RecvAppendEntries(req1)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}
@@ -41,7 +41,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := NewNode(1)
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
 	logger := &InMemoryLogger{
 		entries: []LogEntry{
 			{Term: 1, Index: 0, Command: []byte("init")},
@@ -64,7 +64,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.recvAppendEntries(req1)
+	resp := node.RecvAppendEntries(req1)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}
@@ -88,7 +88,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp = node.recvAppendEntries(req2)
+	resp = node.RecvAppendEntries(req2)
 	if resp.Success {
 		t.Errorf("Expected failure")
 	}
@@ -101,7 +101,7 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		logs a, b and c should be deleted
 	*/
 
-	node := NewNode(1)
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
 	logger := &InMemoryLogger{
 		entries: []LogEntry{
 			{Term: 1, Index: 0, Command: []byte("init")},
@@ -125,7 +125,7 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.recvAppendEntries(req)
+	resp := node.RecvAppendEntries(req)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}
@@ -142,7 +142,7 @@ func TestAppendEntriesFollowerNewLeader(t *testing.T) {
 		Check that this node will accept the new leader's log entries.
 	*/
 
-	node := NewNode(10)
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC())
 	logger := &InMemoryLogger{
 		entries: []LogEntry{
 			{Term: 1, Index: 0, Command: []byte("init")},
@@ -163,7 +163,7 @@ func TestAppendEntriesFollowerNewLeader(t *testing.T) {
 		LeaderCommit: 1,
 	}
 
-	resp := node.recvAppendEntries(req)
+	resp := node.RecvAppendEntries(req)
 	if !resp.Success {
 		t.Errorf("Expected success")
 	}

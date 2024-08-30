@@ -69,10 +69,12 @@ func (n *Node) appendEntries() bool {
 			replicated_count += 1
 		}
 	}
+	n.RestartHeartbeatTimerLeader()
 	if replicated_count > len(n.Peers)/2 {
 		// More than half of the peers have replicated the log entries
 		// Commit the log entries
 		n.state.commitIndex = n.state.LastLogIndex()
+		log.Println("Node ", n.state.id, " replicated log entries to majority of peers")
 		return true
 	} else {
 		log.Println("Node ", n.state.id, " couldn't replicate log entries to majority of peers")
@@ -100,13 +102,13 @@ func (n *Node) getAppendEntryRequest(peer Peer) AppendEntriesRequest {
 		}
 	}
 	missing_logs_count := n.state.Logger.LastLogIndex() - prevLog.Index
-	log.Println("Missing logs count", missing_logs_count)
 	if missing_logs_count > 100 {
 		missing_logs_count = 100
 	}
 	missing_logs, err := n.state.GetRange(peerState.nextIndex, peerState.nextIndex+missing_logs_count)
 	if err != nil {
 		// Handle the error
+		log.Println("Error getting missing logs", err)
 	}
 	request := AppendEntriesRequest{
 		Term:         n.state.currentTerm,

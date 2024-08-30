@@ -106,9 +106,10 @@ func (n *Node) HandleVoteRequestResponse(ballot BallotResponse) {
 			n.electionState.votesReceived += 1
 			if n.electionState.votesReceived > len(n.Peers)/2 {
 				/* Won the election */
-				log.Printf("Node %d won the election\n", n.state.id)
-				n.becomeLeader()
-
+				if n.role == Candidate {
+					log.Printf("Node %d won the election\n", n.state.id)
+					n.becomeLeader()
+				}
 			}
 		}
 	}

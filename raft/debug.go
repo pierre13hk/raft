@@ -3,6 +3,7 @@ package raft
 import (
 	"errors"
 	"fmt"
+	//"log"
 	"math/rand"
 	"time"
 )
@@ -12,10 +13,6 @@ type InMemoryLogger struct {
 	entries []LogEntry
 }
 
-func (l *InMemoryLogger) TruncateFrom(index uint64) error {
-	l.entries = l.entries[index:]
-	return nil
-}
 
 func (l *InMemoryLogger) TruncateTo(index uint64) error {
 	l.entries = l.entries[:index]
@@ -79,6 +76,9 @@ func NewInMemoryRaftRPC() *InMemoryRaftRPC {
 	}
 }
 
+func (r *InMemoryRaftRPC) RegisterNode(node *Node) {}
+func (r *InMemoryRaftRPC) Start()                  {}
+
 func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot) (BallotResponse, error) {
 	peer := r.Peers[p.Id]
 	if peer == nil {
@@ -104,7 +104,7 @@ func (r *InMemoryRaftRPC) AppendEntriesRPC(p Peer, req AppendEntriesRequest) (Ap
 	//time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 
-	resp := peer.recvAppendEntries(req)
+	resp := peer.RecvAppendEntries(req)
 	return resp, nil
 }
 
@@ -145,9 +145,9 @@ type DebugNode struct {
 	Node *Node
 }
 
-func NewDebugNode(id uint64) *DebugNode {
+func NewDebugNode(id uint64, addr string, rpc RaftRPC) *DebugNode {
 	return &DebugNode{
-		Node: NewNode(id),
+		Node: NewNode(id, addr, rpc),
 	}
 }
 

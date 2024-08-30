@@ -4,7 +4,7 @@ import (
 	"log"
 )
 
-func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
+func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
 	/* AppendEntries RPC */
 	if req.Term < n.state.currentTerm {
 		log.Printf("Node %d: AppendEntries: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
@@ -29,7 +29,6 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	n.role = Follower
 	n.state.votedFor = req.LeaderId
 	if len(req.Entries) == 0 {
-		n.RestartHeartbeatTimer()
 		log.Printf("Node %d: AppendEntries: Heartbeat from leader %d\n", n.state.id, req.LeaderId)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
@@ -39,6 +38,5 @@ func (n *Node) recvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	n.state.Append(req.Entries)
 	last_appended_index := req.Entries[len(req.Entries)-1].Index
 	log.Printf("Node %d: AppendEntries: Appending %d new entries, last appended index= %d\n", n.state.id, len(req.Entries), last_appended_index)
-
 	return AppendEntriesResponse{n.state.currentTerm, true}
 }

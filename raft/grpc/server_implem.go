@@ -1,0 +1,151 @@
+package grpc
+
+import (
+	"context"
+	"log"
+	"net"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	rft "raft.com/raft"
+)
+
+type RaftRpcImplem struct {
+	UnimplementedRaftNodeServer
+	node *rft.Node
+}
+
+func (server *RaftRpcImplem) RegisterNode(node *rft.Node) {
+	server.node = node
+	log.Printf("Node %d registered with RPC layer\n", node.Addr)
+}
+
+func (server *RaftRpcImplem) newGRPCClient(peer rft.Peer) (RaftNodeClient, error) {
+	connection, err := grpc.NewClient(peer.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Failed to connect to %s\n", peer.Addr)
+		return nil, err
+	}
+	return NewRaftNodeClient(connection), nil
+}
+
+func (server *RaftRpcImplem) Start() {
+	if server.node == nil {
+		panic("Node not registered")
+	}
+	lis, err := net.Listen("tcp", server.node.Addr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	log.Printf("Starting RPC server listening on %s\n", server.node.Addr)
+	grpcServer := grpc.NewServer()
+	RegisterRaftNodeServer(grpcServer, server)
+	go grpcServer.Serve(lis)
+	log.Printf("RPC server started\n")
+}
+
+// raft RPC interface implementations, really just a wrapper for the grpc client
+func (server *RaftRpcImplem) RequestVoteRPC(peer rft.Peer, ballot rft.Ballot) (rft.BallotResponse, error) {
+	grpcBallot := &RPCBallot{
+		Term:         ballot.Term,
+		CandidateId:  ballot.CandidateId,
+		LastLogIndex: ballot.LastLogIndex,
+		LastLogTerm:  ballot.LastLogTerm,
+	}
+	client, err := server.newGRPCClient(peer)
+	if err != nil {
+		return rft.BallotResponse{}, err
+	}
+	grpcBallotResponse, err := client.RequestVote(context.Background(), grpcBallot)
+	if err != nil {
+		return rft.BallotResponse{}, err
+	}
+	raftBallotResponse := rft.BallotResponse{
+		Term:        grpcBallotResponse.Term,
+		VoteGranted: grpcBallotResponse.VoteGranted,
+	}
+	return raftBallotResponse, nil
+}
+
+func (server *RaftRpcImplem) AppendEntriesRPC(peer rft.Peer, request rft.AppendEntriesRequest) (rft.AppendEntriesResponse, error) {
+	entries := make([]*RPCLogEntry, len(request.Entries))
+	for i, entry := range request.Entries {
+		entries[i] = &RPCLogEntry{
+			Term:    entry.Term,
+			Index:   entry.Index,
+			Type:    entry.Type,
+			Command: entry.Command,
+		}
+	}
+	grpcAppendEntriesRequest := &RPCAppendEntriesRequest{
+		Term:         request.Term,
+		LeaderId:     request.LeaderId,
+		PrevLogIndex: request.PrevLogIndex,
+		PrevLogTerm:  request.PrevLogTerm,
+		LeaderCommit: request.LeaderCommit,
+		Entries:      entries,
+	}
+	client, err := server.newGRPCClient(peer)
+	if err != nil {
+		return rft.AppendEntriesResponse{}, err
+	}
+	grpcAppendEntriesResponse, err := client.AppendEntries(context.Background(), grpcAppendEntriesRequest)
+	if err != nil {
+		return rft.AppendEntriesResponse{}, err
+	}
+	raftAppendEntriesResponse := rft.AppendEntriesResponse{
+		Term:    grpcAppendEntriesResponse.Term,
+		Success: grpcAppendEntriesResponse.Success,
+	}
+	return raftAppendEntriesResponse, nil
+}
+
+func (server *RaftRpcImplem) ForwardToLeaderRPC(peer rft.Peer, req rft.ClientRequest) (rft.ClientRequestResponse, error) {
+	return rft.ClientRequestResponse{}, nil
+}
+
+func (server *RaftRpcImplem) JoinClusterRPC(peer rft.Peer, req rft.JoinClusterRequest) (rft.JoinClusterResponse, error) {
+	return rft.JoinClusterResponse{}, nil
+}
+
+// gRPC server implementation
+func (server *RaftRpcImplem) RequestVote(ctx context.Context, ballot *RPCBallot) (*RPCBallotResponse, error) {
+	raftBallot := rft.Ballot{
+		Term:         ballot.Term,
+		CandidateId:  ballot.CandidateId,
+		LastLogIndex: ballot.LastLogIndex,
+		LastLogTerm:  ballot.LastLogTerm,
+	}
+	raftBallotResponse := server.node.HandleVoteRequest(raftBallot)
+	grpcBallotResponse := &RPCBallotResponse{
+		Term:        raftBallotResponse.Term,
+		VoteGranted: raftBallotResponse.VoteGranted,
+	}
+
+	return grpcBallotResponse, nil
+}
+func (server *RaftRpcImplem) AppendEntries(context context.Context, request *RPCAppendEntriesRequest) (*RPCAppendEntriesResponse, error) {
+	entries := make([]rft.LogEntry, len(request.Entries))
+	for i, entry := range request.Entries {
+		entries[i] = rft.LogEntry{
+			Term:    entry.Term,
+			Index:   entry.Index,
+			Type:    entry.Type,
+			Command: entry.Command,
+		}
+	}
+	raftAppendEntriesRequest := rft.AppendEntriesRequest{
+		Term:         request.Term,
+		LeaderId:     request.LeaderId,
+		PrevLogIndex: request.PrevLogIndex,
+		PrevLogTerm:  request.PrevLogTerm,
+		Entries:      entries,
+		LeaderCommit: request.LeaderCommit,
+	}
+	raftAppendEntriesResponse := server.node.RecvAppendEntries(raftAppendEntriesRequest)
+	grpcAppendEntriesResponse := &RPCAppendEntriesResponse{
+		Term:    raftAppendEntriesResponse.Term,
+		Success: raftAppendEntriesResponse.Success,
+	}
+	return grpcAppendEntriesResponse, nil
+}
