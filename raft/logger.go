@@ -84,7 +84,6 @@ func NewLoggerImplem() *LoggerImplem {
 	}
 }
 
-
 func (l *LoggerImplem) TruncateTo(index uint64) error {
 	startIndex := l.inMemEntries[0].Index
 	endIndex := l.inMemEntries[len(l.inMemEntries)-1].Index

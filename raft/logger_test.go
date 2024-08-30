@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-
 func TestTruncateEndDebug(t *testing.T) {
 	logger := &InMemoryLogger{
 		entries: []LogEntry{

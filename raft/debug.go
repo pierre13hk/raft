@@ -13,7 +13,6 @@ type InMemoryLogger struct {
 	entries []LogEntry
 }
 
-
 func (l *InMemoryLogger) TruncateTo(index uint64) error {
 	l.entries = l.entries[:index]
 	return nil
