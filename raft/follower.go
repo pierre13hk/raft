@@ -34,7 +34,7 @@ func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	}
 
 	// Append new entries
-	n.state.TruncateTo(req.PrevLogIndex + 1)
+	n.state.TruncateTo(req.PrevLogIndex)
 	n.state.Append(req.Entries)
 	last_appended_index := req.Entries[len(req.Entries)-1].Index
 	log.Printf("Node %d: AppendEntries: Appending %d new entries, last appended index= %d\n", n.state.id, len(req.Entries), last_appended_index)

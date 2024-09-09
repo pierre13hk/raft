@@ -98,7 +98,7 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC) *Node {
 			matchIndex:  make(map[uint64]uint64),
 			Logger: &InMemoryLogger{
 				entries: []LogEntry{
-					{Term: 0, Index: 0, Command: []byte("init")},
+					{Term: 0, Index: 0, Type: RAFT_LOG, Command: []byte("init")},
 				},
 			},
 		},
@@ -195,4 +195,24 @@ func (n *Node) handleTimeout() {
 	}
 	// follower
 	n.StartElection()
+}
+
+func (n *Node) commitEntries() {
+	/* Commit entries */
+	for i := n.state.commitIndex + 1; i <= n.state.LastLogIndex(); i++ {
+		logEntry, err := n.state.Get(i)
+		if err != nil {
+			log.Println("Error getting log entry")
+			return
+		}
+		switch logEntry.Type {
+		case USER_LOG:
+			n.StateMachine.Apply(logEntry.Command)
+		// Configurations changes
+		case RAFT_LOG:
+			// do nothing
+		case CLUSTER_CHANGE_ADD:
+			//
+		}
+	}
 }

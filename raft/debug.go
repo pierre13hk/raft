@@ -1,8 +1,10 @@
 package raft
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+
 	//"log"
 	"math/rand"
 	"time"
@@ -14,7 +16,12 @@ type InMemoryLogger struct {
 }
 
 func (l *InMemoryLogger) TruncateTo(index uint64) error {
-	l.entries = l.entries[:index]
+	l.entries = l.entries[:index+1]
+	return nil
+}
+
+func (l *InMemoryLogger) Cut(index uint64) error {
+	l.entries = l.entries[index+1:]
 	return nil
 }
 
@@ -61,6 +68,14 @@ func (l *InMemoryLogger) Append(entries []LogEntry) error {
 }
 
 func (l *InMemoryLogger) Initialize(fileName string) error {
+	return nil
+}
+
+func (l *InMemoryLogger) Commit(i uint64) error {
+	return nil
+}
+
+func (l *InMemoryLogger) CreateSnapshot() error {
 	return nil
 }
 
@@ -132,10 +147,18 @@ func (d *DebugStateMachine) Apply(command []byte) error {
 }
 
 func (d *DebugStateMachine) Serialize() ([]byte, error) {
-	return []byte{}, nil
+	ser, err := json.Marshal(d.Log)
+	if err != nil {
+		return nil, err
+	}
+	return ser, nil
 }
 
-func (d *DebugStateMachine) Deserialize([]byte) error {
+func (d *DebugStateMachine) Deserialize(data []byte) error {
+	err := json.Unmarshal(data, &d.Log)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -156,7 +179,7 @@ func (n *DebugNode) Start() {
 
 func (n *DebugNode) Stop() []LogEntry {
 	n.Node.Stop()
-	entries, _ := n.Node.state.GetFrom(1)
+	entries, _ := n.Node.state.GetRange(0, n.Node.state.LastLogIndex()+1)
 	return entries
 }
 

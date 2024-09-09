@@ -2,6 +2,7 @@ package raft
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,11 +20,16 @@ const (
 )
 
 var (
-	InvalidIndexError = errors.New("invalid index")
-	FileError         = errors.New("file error")
+	InvalidIndexError    = errors.New("invalid index")
+	FileError            = errors.New("file error")
+	InvalidSnapShotError = errors.New("invalid snapshot")
 )
 
 const (
+	logFileName    = "raft.log"
+	configFileName = "logger.conf"
+	snapshotDir    = "snapshots"
+	spashotSuffix  = ".snapshot"
 	logEntryFormat = "%d,%d,%d,%s"
 )
 
@@ -49,23 +55,37 @@ func StringToLogEntry(s string) (LogEntry, error) {
 }
 
 type Logger interface {
-	// Truncate the log from the beginning to the given index (exclusive)
+	// Truncate the log from the beginning to the given index (inclusive)
 	TruncateTo(index uint64) error
+	// Remove all logs from the beginning to the given index (inclusive)
+	Cut(index uint64) error
 	// Get the term of the last log entry
 	LastLogTerm() uint64
 	// Get the index of the last log entry
 	LastLogIndex() uint64
 	// Get the log entry at the given index
 	Get(index uint64) (LogEntry, error)
-	// Get all log entries starting from the given index
-	GetFrom(start uint64) ([]LogEntry, error)
 	// Get all log entries with index in the range [start, end)
 	GetRange(start uint64, end uint64) ([]LogEntry, error)
 	// Append log entries to the log
 	Append(entries []LogEntry) error
-	// Initialize the logger from an existing log file
-	// used on node start up / recovery
-	Initialize(logFileName string) error
+	// Create a snapshot of the log
+	CreateSnapshot() error
+	// Commit the log up to the given index
+	Commit(index uint64) error
+}
+
+type SnapshotInfo struct {
+	LastCommitedIndex uint64
+	Date              string
+}
+
+type LoggerConfig struct {
+	SnapshotsInfo map[string]SnapshotInfo
+}
+
+func (c *LoggerConfig) Serialize() ([]byte, error) {
+	return json.Marshal(c)
 }
 
 type LoggerImplem struct {
@@ -73,43 +93,86 @@ type LoggerImplem struct {
 	inMemSize        uint64
 	logFile          *os.File
 	logSeperatorChar byte
+
+	StateMachine
+	confDir string
+	config  LoggerConfig
 }
 
-func NewLoggerImplem() *LoggerImplem {
-	return &LoggerImplem{
+func (l *LoggerImplem) logError(msg string) {
+	log.Println("Logger error: ", msg)
+}
+
+func NewLoggerImplem(sm StateMachine, confDir string, seperatorChar byte) *LoggerImplem {
+	implem := LoggerImplem{
 		inMemEntries:     make([]LogEntry, 0),
 		inMemSize:        0,
-		logFile:          nil,
 		logSeperatorChar: '\n',
+		StateMachine:     sm,
+		confDir:          confDir,
+		config:           LoggerConfig{SnapshotsInfo: make(map[string]SnapshotInfo)},
 	}
+	implem.initialize()
+	return &implem
 }
 
-func (l *LoggerImplem) TruncateTo(index uint64) error {
-	startIndex := l.inMemEntries[0].Index
-	endIndex := l.inMemEntries[len(l.inMemEntries)-1].Index
-	if index < startIndex || index > endIndex {
-		return InvalidIndexError
-	}
-	l.inMemEntries = l.inMemEntries[:index-startIndex]
+func (l *LoggerImplem) writeOutLogs(logs []LogEntry) error {
 	wroutContent := make([]byte, 0, 1024)
-	for _, entry := range l.inMemEntries {
-		line := fmt.Sprintf("%d%d%d%s%c\n", entry.Term, entry.Index, entry.Type, string(entry.Command), l.logSeperatorChar)
+	for _, entry := range logs {
+		line := fmt.Sprintf("%s%c", entry.String(), l.logSeperatorChar)
 		wroutContent = append(wroutContent, line...)
 	}
 	newLogFile, err := os.Create(l.logFile.Name() + ".tmp")
 	if err != nil {
 		return FileError
 	}
-	defer newLogFile.Close()
+	defer func() {
+		newLogFile.Close()
+		os.Remove(newLogFile.Name())
+	}()
 	_, err = newLogFile.Write(wroutContent)
 	if err != nil {
 		return FileError
 	}
-	_, err = io.Copy(newLogFile, l.logFile)
-	if err != nil {
+	if os.Truncate(l.logFile.Name(), 0) != nil {
 		return FileError
 	}
+	l.logFile.Seek(0, 0)
+	newLogFile.Seek(0, 0)
+	totalWrt := 0
+	for {
+		wrt, err := io.Copy(l.logFile, newLogFile)
+		totalWrt += int(wrt)
+		if err == io.EOF || wrt == 0 {
+			break
+		}
+		if err != nil {
+			l.logError("Error copying log file: " + err.Error())
+			return FileError
+		}
+	}
+	fmt.Println("new length: ", len(l.inMemEntries), "totalWrt: ", totalWrt)
 	return nil
+}
+
+func (l *LoggerImplem) TruncateTo(index uint64) error {
+	startIndex := l.inMemEntries[0].Index
+	offset := index - startIndex
+	if index < startIndex || offset+1 > uint64(len(l.inMemEntries)) {
+		return InvalidIndexError
+	}
+	l.inMemEntries = l.inMemEntries[:index-startIndex+1]
+	return l.writeOutLogs(l.inMemEntries)
+}
+
+func (l *LoggerImplem) Cut(index uint64) error {
+	startIndex := l.inMemEntries[0].Index
+	offset := index - startIndex
+	if index < startIndex || offset+1 > uint64(len(l.inMemEntries)) {
+		return InvalidIndexError
+	}
+	l.inMemEntries = l.inMemEntries[index-startIndex+1:]
+	return l.writeOutLogs(l.inMemEntries)
 }
 
 func (l *LoggerImplem) LastLogTerm() uint64 {
@@ -127,17 +190,6 @@ func (l *LoggerImplem) Get(index uint64) (LogEntry, error) {
 		return LogEntry{}, InvalidIndexError
 	}
 	return l.inMemEntries[index-startIndex], nil
-}
-
-func (l *LoggerImplem) GetFrom(start uint64) ([]LogEntry, error) {
-	startIndex := l.inMemEntries[0].Index
-	endIndex := l.inMemEntries[len(l.inMemEntries)-1].Index
-	if start < startIndex || start > endIndex {
-		return nil, InvalidIndexError
-	}
-	ret := make([]LogEntry, startIndex-endIndex)
-	copy(ret, l.inMemEntries)
-	return ret, nil
 }
 
 func (l *LoggerImplem) GetRange(start uint64, end uint64) ([]LogEntry, error) {
@@ -164,6 +216,8 @@ func (l *LoggerImplem) Append(entries []LogEntry) error {
 }
 
 func (l *LoggerImplem) appendToLogFile(content []byte) error {
+	// Seek to the end of the file
+	l.logFile.Seek(0, 2)
 	_, err := l.logFile.Write(content)
 	if err != nil {
 		log.Println("Error writing to log file: ", err)
@@ -172,24 +226,122 @@ func (l *LoggerImplem) appendToLogFile(content []byte) error {
 	return nil
 }
 
-func (l *LoggerImplem) Initialize(logFileName string, seperatorChar byte) error {
-	l.inMemEntries = make([]LogEntry, 0, 1024)
-	l.inMemSize = 0
-	l.logSeperatorChar = seperatorChar
-	logFile, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE, 0666)
+func (l *LoggerImplem) getLastSnapsotFileName() (string, error) {
+	entries, err := os.ReadDir(l.confDir + "/" + snapshotDir)
 	if err != nil {
-		log.Println("Error opening log file: ", err)
+		return "", err
+	}
+	if len(entries) == 0 {
+		return "nil", errors.New("No snapshot found")
+	}
+	var latestSnapshot os.DirEntry
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if latestSnapshot == nil {
+			latestSnapshot = entry
+			continue
+		}
+		info, err := entry.Info()
+		if err == nil {
+			latestInfo, _ := latestSnapshot.Info()
+			if info.ModTime().After(latestInfo.ModTime()) {
+				latestSnapshot = entry
+			}
+		}
+	}
+	return latestSnapshot.Name(), nil
+}
+
+func (l *LoggerImplem) createConfDir() error {
+	err := os.MkdirAll(l.confDir, 0777)
+	if err != nil {
+		l.logError("Error creating conf dir: " + err.Error() + "confdir: " + l.confDir)
+		return err
+	}
+	return nil
+}
+
+func (l *LoggerImplem) checkLogFile() (bool, error) {
+	_, err := os.Stat(l.confDir + "/" + logFileName)
+	if err != nil {
+		_, err := os.Create(l.confDir + "/" + logFileName)
+		if err != nil {
+			l.logError("Error creating log file: " + err.Error())
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (l *LoggerImplem) initialize() error {
+	log.Println("Initializing logger", l.confDir)
+	if l.createConfDir() != nil {
 		return FileError
 	}
-	l.logFile = logFile
+	_, err := l.checkLogFile()
+	if err != nil {
+		l.logError("Error checking log file: " + err.Error())
+		return err
+	}
+	file, err := os.OpenFile(l.confDir+"/"+logFileName, os.O_RDWR, 0777)
+	if err != nil {
+		l.logError("Error opening log file: " + err.Error())
+		return err
+	}
+	l.logFile = file
+	err = l.readLogFile()
+	if err != nil {
+		return err
+	}
+	snapshotFileName, err := l.getLastSnapsotFileName()
+	if err != nil {
+		// there is no snapshot, check that the first log entry is at index 0
+		if len(l.inMemEntries) > 0 && l.inMemEntries[0].Index != 0 {
+			return FileError
+		}
+	}
+	err = l.RecoverStateMachine(snapshotFileName)
+	if err != nil {
+		return err
+	}
+	// At this point:
+	// - logFile is open and ready for writing
+	// - inMemEntries contains all log entries
+	// - StateMachine is initialized with the latest snapshot
+	return nil
+}
 
-	scanner := bufio.NewScanner(logFile)
+func (l *LoggerImplem) RecoverStateMachine(fileName string) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	bytes := make([]byte, info.Size())
+	_, err = file.Read(bytes)
+	if err != nil {
+		return err
+	}
+	err = l.Deserialize(bytes)
+	if err != nil {
+		return InvalidSnapShotError
+	}
+	return nil
+}
+
+func (l *LoggerImplem) readLogFile() error {
+	scanner := bufio.NewScanner(l.logFile)
 	scanner.Split(bufio.ScanBytes)
-
 	var line []byte = make([]byte, 0, 1024)
 	for scanner.Scan() {
 		b := scanner.Bytes()
-		if b[0] != seperatorChar {
+		if b[0] != l.logSeperatorChar {
 			line = append(line, b[0])
 			continue
 		}
@@ -210,9 +362,77 @@ func (l *LoggerImplem) Initialize(logFileName string, seperatorChar byte) error 
 	}
 
 	l.inMemSize = uint64(len(l.inMemEntries))
-	_, err = l.logFile.Seek(0, 0)
+	_, err := l.logFile.Seek(0, 0)
 	if err != nil {
 		return FileError
 	}
 	return nil
+}
+
+func (l *LoggerImplem) CreateSnapshot(lastCommitedIndex uint64) error {
+	snapshotCount := len(l.config.SnapshotsInfo)
+	snapshotFileName := fmt.Sprintf("%s/%d%s", l.confDir, snapshotCount, spashotSuffix)
+	snapshotFile, err := os.Create(snapshotFileName)
+	if err != nil {
+		return err
+	}
+	defer snapshotFile.Close()
+	bytes, err := l.Serialize()
+	if err != nil {
+		return err
+	}
+	_, err = snapshotFile.Write(bytes)
+	if err != nil {
+		return err
+	}
+	snapshotInfo := SnapshotInfo{LastCommitedIndex: lastCommitedIndex, Date: "now"}
+	l.config.SnapshotsInfo[snapshotFileName] = snapshotInfo
+	err = l.saveConfig()
+	err = l.Cut(lastCommitedIndex)
+	if err != nil {
+		l.logError("Error truncating log: " + err.Error())
+		return err
+	}
+	l.logError("Snapshot created, truncated to: " + fmt.Sprint(lastCommitedIndex))
+	return nil
+}
+
+func (l *LoggerImplem) Commit(index uint64) error {
+	entry, err := l.Get(index)
+	if err != nil {
+		return err
+	}
+	err = l.Apply(entry.Command)
+	return err
+}
+
+func (l *LoggerImplem) saveConfig() error {
+	out, err := l.config.Serialize()
+	if err != nil {
+		return err
+	}
+	configFile, err := os.Create(l.confDir + "/" + configFileName)
+	if err != nil {
+		return err
+	}
+	defer configFile.Close()
+	_, err = configFile.Write(out)
+	return err
+}
+
+func (l *LoggerImplem) loadConfig() error {
+	configFileName := l.confDir + "/" + configFileName
+	configFile, err := os.Open(configFileName)
+	if err != nil {
+		return err
+	}
+	defer configFile.Close()
+	info, _ := configFile.Stat()
+	bytes := make([]byte, info.Size())
+	_, err = configFile.Read(bytes)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(bytes, &l.config)
+	return err
 }
