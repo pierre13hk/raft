@@ -63,6 +63,12 @@ func TestLoggerAppend(t *testing.T) {
 		fmt.Println(err)
 		t.Fatalf("expected entries to be appended")
 	}
+	if logger.LastLogIndex() != 2 {
+		t.Fatalf("expected last log index to be 2, got %d", logger.LastLogIndex())
+	}
+	if logger.LastLogTerm() != 1 {
+		t.Fatalf("expected last log term to be 1, got %d", logger.LastLogTerm())
+	}
 
 	logger2 := NewLoggerImplem(
 		&DebugStateMachine{},
@@ -238,6 +244,22 @@ func TestLoggerCutOffset(t *testing.T) {
 		t.Fatalf("expected 0 entries, got %d", len(logger.inMemEntries))
 	}
 
+}
+
+func TestGetInitial(t *testing.T) {
+	logger := newLogger(t)
+
+	err := logger.Append([]LogEntry{
+		{Term: 0, Index: 0, Command: []byte("a")},
+	})
+	if err != nil {
+		t.Fatalf("expected entries to be appended")
+	}
+
+	entry, err := logger.Get(0)
+	if err != nil {
+		t.Fatalf("shouldn have gotten entry :%v", entry)
+	}
 }
 
 func TestGet(t *testing.T) {

@@ -21,8 +21,12 @@ func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 
 	n.RestartHeartbeatTimer()
 	lg, err := n.state.Get(req.PrevLogIndex)
-	if err != nil || lg.Term != req.PrevLogTerm {
-		log.Println("AppendEntries: Log doesn't match", err, lg.Term, req.PrevLogTerm)
+	if err != nil {
+		log.Println("AppendEntries: coudn't get log at index", req.PrevLogIndex)
+		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
+	}
+	if lg.Term != req.PrevLogTerm {
+		log.Printf("AppendEntries: Log doesn't match log at index term: %d req prevlogterm %d\n", lg.Term, req.PrevLogTerm)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
 
@@ -37,6 +41,44 @@ func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 	n.state.TruncateTo(req.PrevLogIndex)
 	n.state.Append(req.Entries)
 	last_appended_index := req.Entries[len(req.Entries)-1].Index
-	log.Printf("Node %d: AppendEntries: Appending %d new entries, last appended index= %d\n", n.state.id, len(req.Entries), last_appended_index)
+	log.Printf("Node %d: AppendEntries: Appending %d new entries, last appended index= %d got %v\n",
+		n.state.id,
+		len(req.Entries),
+		last_appended_index,
+		req.Entries,
+	)
+	if n.state.commitIndex < req.LeaderCommit {
+		n.commitEntries()
+	}
 	return AppendEntriesResponse{n.state.currentTerm, true}
+}
+
+type InstallSnapshotRequest struct {
+	Term              uint64
+	LeaderId          uint64
+	LastIncludedIndex uint64
+	LastIncludedTerm  uint64
+	LastConfig        []Peer
+	Data              []byte
+}
+
+type InstallSnapshotResponse struct {
+	Term    uint64
+	Success bool
+}
+
+func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotResponse {
+	/*
+		InstallSnapshot RPC
+		Todo: implement chunking
+	*/
+	if req.Term < n.state.currentTerm {
+		log.Printf("Node %d: InstallSnapshot: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
+		return InstallSnapshotResponse{Term: n.state.currentTerm, Success: false}
+	}
+	n.state.Logger.InstallSnapshot(req.Data, req.LastIncludedIndex)
+	n.state.lastApplied = req.LastIncludedIndex
+	n.Peers = req.LastConfig
+	n.RestartHeartbeatTimer()
+	return InstallSnapshotResponse{Term: n.state.currentTerm, Success: true}
 }

@@ -70,7 +70,9 @@ type Logger interface {
 	// Append log entries to the log
 	Append(entries []LogEntry) error
 	// Create a snapshot of the log
-	CreateSnapshot() error
+	CreateSnapshot(index uint64) error
+	// Install a snapshot
+	InstallSnapshot(snapshot []byte, lastIncludedIndex uint64) error
 	// Commit the log up to the given index
 	Commit(index uint64) error
 }
@@ -81,7 +83,8 @@ type SnapshotInfo struct {
 }
 
 type LoggerConfig struct {
-	SnapshotsInfo map[string]SnapshotInfo
+	LastSnapshotName string
+	SnapshotsInfo    map[string]SnapshotInfo
 }
 
 func (c *LoggerConfig) Serialize() ([]byte, error) {
@@ -185,20 +188,24 @@ func (l *LoggerImplem) LastLogIndex() uint64 {
 
 func (l *LoggerImplem) Get(index uint64) (LogEntry, error) {
 	startIndex := l.inMemEntries[0].Index
-	endIndex := l.inMemEntries[len(l.inMemEntries)-1].Index
-	if index < startIndex || index > endIndex {
+	offset := index - startIndex
+	if index < startIndex || offset+1 > uint64(len(l.inMemEntries)) {
 		return LogEntry{}, InvalidIndexError
 	}
-	return l.inMemEntries[index-startIndex], nil
+	return l.inMemEntries[offset], nil
 }
 
 func (l *LoggerImplem) GetRange(start uint64, end uint64) ([]LogEntry, error) {
-	startIndex := l.inMemEntries[0].Index
-	endIndex := l.inMemEntries[len(l.inMemEntries)-1].Index
-	if start < startIndex || start > endIndex || end < start || end > endIndex {
+	startOffset := start - l.inMemEntries[0].Index
+	endOffset := end - l.inMemEntries[0].Index
+	logsArrayLen := uint64(len(l.inMemEntries))
+	if start < 0 || startOffset+1 > logsArrayLen {
 		return nil, InvalidIndexError
 	}
-	return l.inMemEntries[start-startIndex : end-startIndex], nil
+	if end < 0 || endOffset+1 > logsArrayLen {
+		return nil, InvalidIndexError
+	}
+	return l.inMemEntries[startOffset : endOffset+1], nil
 }
 
 func (l *LoggerImplem) Append(entries []LogEntry) error {
@@ -387,6 +394,7 @@ func (l *LoggerImplem) CreateSnapshot(lastCommitedIndex uint64) error {
 	}
 	snapshotInfo := SnapshotInfo{LastCommitedIndex: lastCommitedIndex, Date: "now"}
 	l.config.SnapshotsInfo[snapshotFileName] = snapshotInfo
+	l.config.LastSnapshotName = snapshotFileName
 	err = l.saveConfig()
 	err = l.Cut(lastCommitedIndex)
 	if err != nil {
@@ -394,6 +402,26 @@ func (l *LoggerImplem) CreateSnapshot(lastCommitedIndex uint64) error {
 		return err
 	}
 	l.logError("Snapshot created, truncated to: " + fmt.Sprint(lastCommitedIndex))
+	return nil
+}
+
+func (l *LoggerImplem) InstallSnapshot(snapshot []byte, lastIncludedIndex uint64) error {
+	// Remove all entries in the log up to lastIncludedIndex
+	// note: lastIncludedIndex is removed from the log aswell
+	if lastIncludedIndex < l.LastLogIndex() {
+		err := l.Cut(lastIncludedIndex)
+		if err != nil {
+			return err
+		}
+	} else {
+		l.inMemEntries = make([]LogEntry, 0, 128)
+	}
+	err := l.Deserialize(snapshot)
+	if err != nil {
+		l.logError("Error deserializing snapshot: " + err.Error())
+		return err
+	}
+	l.CreateSnapshot(lastIncludedIndex)
 	return nil
 }
 

@@ -5,6 +5,27 @@ import (
 	"testing"
 )
 
+func TestInitialHeartBeat(t *testing.T) {
+	/*
+		Test that the leader sends a heartbeat to all peers when it becomes the leader.
+	*/
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node.role = Leader
+	node.leaderReplicationState = make(map[uint64]FollowerReplicationState)
+	node.leaderReplicationState[2] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
+	heartbeatRequest := node.getAppendEntryRequest(Peer{Id: 2})
+	if len(heartbeatRequest.Entries) != 0 {
+		t.Fatalf("expected 0 entries, got %d", len(heartbeatRequest.Entries))
+	}
+	if heartbeatRequest.LeaderCommit != 0 {
+		t.Fatalf("expected leader commit to be 0, got %d", heartbeatRequest.LeaderCommit)
+	}
+	follower := NewNode(2, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	response := follower.RecvAppendEntries(heartbeatRequest)
+	if !response.Success {
+		t.Fatalf("expected success, got %v", response)
+	}
+}
 func TestLargestCommitedIndex(t *testing.T) {
 	replicationState := make(map[uint64]FollowerReplicationState)
 	replicationState[1] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
@@ -13,7 +34,7 @@ func TestLargestCommitedIndex(t *testing.T) {
 	replicationState[4] = FollowerReplicationState{nextIndex: 1, matchIndex: 3}
 	replicationState[5] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 	node.role = Leader
 	node.leaderReplicationState = replicationState
 
@@ -34,19 +55,15 @@ func TestAppendEntriesNewLog(t *testing.T) {
 		Test the case where the leader sends an append entries request to a peer
 		whose log is behind.
 	*/
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("init")},
-			{Term: 1, Index: 1, Command: []byte("first log")},
-		},
-	}
 	replicationState := make(map[uint64]FollowerReplicationState)
 	replicationState[1] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
 	replicationState[2] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
 
-	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
+	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	leader.state.Append([]LogEntry{
+		{Term: 1, Index: 1, Command: []byte("first log")},
+	})
 	leader.role = Leader
-	leader.state.Logger = logger
 	leader.leaderReplicationState = replicationState
 	leader.state.commitIndex = leader.largestCommittedIndex(&replicationState)
 
@@ -71,14 +88,6 @@ func TestAppendEntriesToPeerLate(t *testing.T) {
 		Test the case where the leader sends an append entries request to a peer
 		whose log is behind.
 	*/
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("a")},
-			{Term: 1, Index: 1, Command: []byte("b")},
-			{Term: 1, Index: 2, Command: []byte("c")},
-			{Term: 1, Index: 3, Command: []byte("d")},
-		},
-	}
 	replicationState := make(map[uint64]FollowerReplicationState)
 	replicationState[1] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 	replicationState[2] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
@@ -86,9 +95,13 @@ func TestAppendEntriesToPeerLate(t *testing.T) {
 	replicationState[4] = FollowerReplicationState{nextIndex: 1, matchIndex: 3}
 	replicationState[5] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 
-	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
+	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	leader.state.Append([]LogEntry{
+		{Term: 1, Index: 1, Command: []byte("first log")},
+		{Term: 1, Index: 2, Command: []byte("second log")},
+		{Term: 1, Index: 3, Command: []byte("third log")},
+	})
 	leader.role = Leader
-	leader.state.Logger = logger
 	leader.leaderReplicationState = replicationState
 	leader.state.commitIndex = leader.largestCommittedIndex(&replicationState)
 
@@ -110,14 +123,6 @@ func TestAppendEntriesToPeerOnTime(t *testing.T) {
 		Test the case where the leader sends an append entries request to a peer
 		whose log is at the same index. It should send a heartbeat.
 	*/
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("a")},
-			{Term: 1, Index: 1, Command: []byte("b")},
-			{Term: 1, Index: 2, Command: []byte("c")},
-			{Term: 1, Index: 3, Command: []byte("d")},
-		},
-	}
 	replicationState := make(map[uint64]FollowerReplicationState)
 	replicationState[1] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 	replicationState[2] = FollowerReplicationState{nextIndex: 4, matchIndex: 0}
@@ -125,9 +130,8 @@ func TestAppendEntriesToPeerOnTime(t *testing.T) {
 	replicationState[4] = FollowerReplicationState{nextIndex: 1, matchIndex: 3}
 	replicationState[5] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 
-	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
+	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 	leader.role = Leader
-	leader.state.Logger = logger
 	leader.leaderReplicationState = replicationState
 	leader.state.commitIndex = leader.largestCommittedIndex(&replicationState)
 

@@ -1,7 +1,6 @@
 package raft
 
 import (
-	"errors"
 	"log"
 	"math/rand"
 	"sync"
@@ -40,10 +39,6 @@ type NodeState struct {
 	/* volatile state */
 	commitIndex uint64
 	lastApplied uint64
-
-	/* volatile state for leaders */
-	nextIndex  map[uint64]uint64
-	matchIndex map[uint64]uint64
 }
 
 func (n *NodeState) save() {
@@ -56,9 +51,9 @@ type NodeConfig struct {
 }
 
 type NodeChannels struct {
-	requestVoteChannel           chan Ballot
-	requestVoteResponseChannel   chan BallotResponse
-	appendEntriesResponseChannel chan AppendEntriesResponse
+	requestVoteChannel         chan Ballot
+	requestVoteResponseChannel chan BallotResponse
+	installSnapshotChannel     chan InstallSnapshotRequest
 }
 type ElectionState struct {
 	votesReceived int
@@ -85,7 +80,21 @@ type Node struct {
 	*sync.Mutex
 }
 
-func NewNode(id uint64, addr string, rpcImplem RaftRPC) *Node {
+func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachine, confDir string) *Node {
+	logger := NewLoggerImplem(
+		statemachine,
+		confDir,
+		'\n',
+	)
+	appendErr := logger.Append([]LogEntry{{
+		Term:    0,
+		Index:   0,
+		Type:    RAFT_LOG,
+		Command: []byte("logger init"),
+	}})
+	if appendErr != nil {
+		log.Println("Error initializing logger")
+	}
 	node := Node{
 		Addr: addr,
 		state: NodeState{
@@ -94,22 +103,16 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC) *Node {
 			votedFor:    0,
 			commitIndex: 0,
 			lastApplied: 0,
-			nextIndex:   make(map[uint64]uint64),
-			matchIndex:  make(map[uint64]uint64),
-			Logger: &InMemoryLogger{
-				entries: []LogEntry{
-					{Term: 0, Index: 0, Type: RAFT_LOG, Command: []byte("init")},
-				},
-			},
+			Logger:      logger,
 		},
 		role:         Follower,
 		StateMachine: &DebugStateMachine{},
 		RaftRPC:      rpcImplem,
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
 		channels: NodeChannels{
-			requestVoteChannel:           make(chan Ballot, 100),
-			requestVoteResponseChannel:   make(chan BallotResponse, 100),
-			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 10),
+			requestVoteChannel:         make(chan Ballot, 100),
+			requestVoteResponseChannel: make(chan BallotResponse, 100),
+			installSnapshotChannel:     make(chan InstallSnapshotRequest, 100),
 		},
 		Mutex: &sync.Mutex{},
 	}
@@ -181,7 +184,7 @@ func (n *Node) GetLeader() (Peer, error) {
 			}
 		}
 	}
-	return Peer{}, errors.New("No leader")
+	return Peer{n.state.id, "la"}, nil
 }
 
 func (n *Node) handleTimeout() {
@@ -199,7 +202,7 @@ func (n *Node) handleTimeout() {
 
 func (n *Node) commitEntries() {
 	/* Commit entries */
-	for i := n.state.commitIndex + 1; i <= n.state.LastLogIndex(); i++ {
+	for i := n.state.lastApplied; i <= n.state.commitIndex; i++ {
 		logEntry, err := n.state.Get(i)
 		if err != nil {
 			log.Println("Error getting log entry")
@@ -215,4 +218,11 @@ func (n *Node) commitEntries() {
 			//
 		}
 	}
+	log.Printf("Node %d committed entries from  %d %d\n",
+		n.state.id,
+		n.state.lastApplied,
+		n.state.commitIndex,
+	)
+	n.state.lastApplied = n.state.commitIndex
+	n.state.commitIndex = n.state.LastLogIndex()
 }

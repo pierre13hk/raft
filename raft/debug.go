@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	//"log"
 	"math/rand"
@@ -76,6 +77,10 @@ func (l *InMemoryLogger) Commit(i uint64) error {
 }
 
 func (l *InMemoryLogger) CreateSnapshot() error {
+	return nil
+}
+
+func (l *InMemoryLogger) InstallSnapshot(data []byte, lastIncluded uint64) error {
 	return nil
 }
 
@@ -165,11 +170,13 @@ func (d *DebugStateMachine) Deserialize(data []byte) error {
 /* Debug Node */
 type DebugNode struct {
 	Node *Node
+	*sync.Mutex
 }
 
 func NewDebugNode(id uint64, addr string, rpc RaftRPC) *DebugNode {
 	return &DebugNode{
-		Node: NewNode(id, addr, rpc),
+		Node:  NewNode(id, addr, rpc, &DebugStateMachine{}, fmt.Sprintf("./tmp/%d", id)),
+		Mutex: &sync.Mutex{},
 	}
 }
 
@@ -179,11 +186,16 @@ func (n *DebugNode) Start() {
 
 func (n *DebugNode) Stop() []LogEntry {
 	n.Node.Stop()
-	entries, _ := n.Node.state.GetRange(0, n.Node.state.LastLogIndex()+1)
+	entries, err := n.Node.state.GetRange(0, n.Node.state.LastLogIndex())
+	if err != nil {
+		fmt.Println("Debug node failed to get logs", err)
+	}
 	return entries
 }
 
 func (n *DebugNode) Apply(command []byte) error {
+	n.Lock()
+	defer n.Unlock()
 	resp := n.Node.clientRequestHandler(ClientRequest{Command: command})
 	if resp.Success {
 		return nil

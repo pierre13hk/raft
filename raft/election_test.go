@@ -7,9 +7,9 @@ import (
 
 func TestRequestVote(t *testing.T) {
 
-	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
-	node2 := NewNode(2, "localhost:1235", NewInMemoryRaftRPC())
-	node3 := NewNode(3, "localhost:1236", NewInMemoryRaftRPC())
+	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node2 := NewNode(2, "localhost:1235", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node3 := NewNode(3, "localhost:1236", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 
 	node1.Peers = []Peer{{Id: 2}, {Id: 3}}
 	node2.Peers = []Peer{{Id: 1}, {Id: 3}}
@@ -41,11 +41,11 @@ func TestRequestVote(t *testing.T) {
 }
 
 func TestStartElection(t *testing.T) {
-	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
-	node2 := NewNode(2, "localhost:1234", NewInMemoryRaftRPC())
-	node3 := NewNode(3, "localhost:1234", NewInMemoryRaftRPC())
-	node4 := NewNode(4, "localhost:1234", NewInMemoryRaftRPC())
-	node5 := NewNode(5, "localhost:1234", NewInMemoryRaftRPC())
+	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node2 := NewNode(2, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node3 := NewNode(3, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node4 := NewNode(4, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node5 := NewNode(5, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 
 	node1.Peers = []Peer{{Id: 2}, {Id: 3}, {Id: 4}, {Id: 5}}
 	node2.Peers = []Peer{{Id: 1}, {Id: 3}, {Id: 4}, {Id: 5}}
@@ -91,11 +91,11 @@ func TestStartElection(t *testing.T) {
 }
 
 func TestStartElectionRetry(t *testing.T) {
-	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
-	node2 := NewNode(2, "localhost:1234", NewInMemoryRaftRPC())
-	node3 := NewNode(3, "localhost:1234", NewInMemoryRaftRPC())
-	node4 := NewNode(4, "localhost:1234", NewInMemoryRaftRPC())
-	node5 := NewNode(5, "localhost:1234", NewInMemoryRaftRPC())
+	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node2 := NewNode(2, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node3 := NewNode(3, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node4 := NewNode(4, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node5 := NewNode(5, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 
 	node1.Peers = []Peer{{Id: 2}, {Id: 3}, {Id: 4}, {Id: 5}}
 	node2.Peers = []Peer{{Id: 1}, {Id: 3}, {Id: 4}, {Id: 5}}
@@ -135,7 +135,7 @@ func TestStartElectionRetry(t *testing.T) {
 }
 
 func TestCandidateBeaten(t *testing.T) {
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 	node.state.currentTerm = 1
 	node.role = Candidate
 	node.state.votedFor = 1

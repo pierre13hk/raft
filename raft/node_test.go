@@ -8,13 +8,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 1, Command: []byte("init")},
-		},
-	}
-	node.state.Logger = logger
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 
 	// The first data append entries request
 	// sent bn the leader to the followers
@@ -23,11 +17,11 @@ func TestAppendEntriesSimple(t *testing.T) {
 		Term:         2,
 		LeaderId:     123,
 		PrevLogIndex: 0,
-		PrevLogTerm:  1,
+		PrevLogTerm:  0,
 		Entries: []LogEntry{
-			{Term: 2, Index: 5, Command: []byte("a")},
+			{Term: 2, Index: 1, Command: []byte("a")},
 		},
-		LeaderCommit: 1,
+		LeaderCommit: 0,
 	}
 
 	resp := node.RecvAppendEntries(req1)
@@ -41,14 +35,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("init")},
-			{Term: 2, Index: 1, Command: []byte("a")},
-		},
-	}
-	node.state.Logger = logger
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 
 	// The first data append entries request
 	// sent by the leader to the followers
@@ -57,7 +44,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 		Term:         2,
 		LeaderId:     123,
 		PrevLogIndex: 0,
-		PrevLogTerm:  1,
+		PrevLogTerm:  0,
 		Entries: []LogEntry{
 			{Term: 2, Index: 1, Command: []byte("a")},
 		},
@@ -101,22 +88,12 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		logs a, b and c should be deleted
 	*/
 
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC())
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("init")},
-			{Term: 2, Index: 1, Command: []byte("a")},
-			{Term: 2, Index: 2, Command: []byte("b")},
-			{Term: 2, Index: 3, Command: []byte("c")},
-		},
-	}
-	node.state.Logger = logger
-
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
 	req := AppendEntriesRequest{
 		Term:         3,
 		LeaderId:     123,
 		PrevLogIndex: 0,
-		PrevLogTerm:  1,
+		PrevLogTerm:  0,
 		Entries: []LogEntry{
 			{Term: 3, Index: 1, Command: []byte("x")},
 			{Term: 3, Index: 2, Command: []byte("y")},
@@ -142,30 +119,25 @@ func TestAppendEntriesFollowerNewLeader(t *testing.T) {
 		Check that this node will accept the new leader's log entries.
 	*/
 
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC())
-	logger := &InMemoryLogger{
-		entries: []LogEntry{
-			{Term: 1, Index: 0, Command: []byte("init")},
-			{Term: 2, Index: 1, Command: []byte("a")},
-			{Term: 2, Index: 2, Command: []byte("b")},
-		},
-	}
-	node.state.Logger = logger
-
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node.state.Append([]LogEntry{
+		{Term: 1, Index: 1, Command: []byte("a")},
+		{Term: 1, Index: 2, Command: []byte("b")},
+	})
 	req := AppendEntriesRequest{
 		Term:         3,
 		LeaderId:     123,
 		PrevLogIndex: 2,
-		PrevLogTerm:  2,
+		PrevLogTerm:  1,
 		Entries: []LogEntry{
-			{Term: 3, Index: 4, Command: []byte("x")},
+			{Term: 3, Index: 2, Command: []byte("x")},
 		},
 		LeaderCommit: 1,
 	}
 
 	resp := node.RecvAppendEntries(req)
 	if !resp.Success {
-		t.Errorf("Expected success")
+		t.Fatalf("Expected success")
 	}
 
 	log, _ := node.state.Get(3)

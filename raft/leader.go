@@ -52,6 +52,7 @@ func (n *Node) leaderDaemon() {
 
 func (n *Node) appendEntries() bool {
 	/* Replicate log entries to all peers */
+	n.StopTimer()
 	replicated := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
@@ -59,7 +60,8 @@ func (n *Node) appendEntries() bool {
 		}
 		go n.appendEntriesToPeer(peer, replicated)
 	}
-	replicated_count := 0
+	replicated_count := 1
+	log.Println("leader waiting for replicas")
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
 			continue
@@ -72,12 +74,15 @@ func (n *Node) appendEntries() bool {
 	n.RestartHeartbeatTimerLeader()
 	if replicated_count > len(n.Peers)/2 {
 		// More than half of the peers have replicated the log entries
-		// Commit the log entries
-		n.state.commitIndex = n.state.LastLogIndex()
-		log.Println("Node ", n.state.id, " replicated log entries to majority of peers")
+		// If the last log is of our term, commit it and by extension all previous logs
+		last_log_term := n.state.LastLogTerm()
+		if last_log_term == n.state.currentTerm {
+			n.commitEntries()
+		}
+		log.Println("Node ", n.state.id, " replicated log entries to majority of peers\n ^^^^^^^^^^^^^^^^^")
 		return true
 	} else {
-		log.Println("Node ", n.state.id, " couldn't replicate log entries to majority of peers")
+		log.Println("Node ", n.state.id, " couldn't replicate log entries to majority of peers\n ^^^^^^^^^^^^^^^^^")
 		return false
 	}
 }
@@ -87,6 +92,7 @@ func (n *Node) getAppendEntryRequest(peer Peer) AppendEntriesRequest {
 	prevLog, err := n.state.Get(n.leaderReplicationState[peer.Id].nextIndex - 1)
 	if err != nil {
 		// Handle the error
+		log.Printf("Error getting prev log for peer %d %d\n", peer.Id, n.leaderReplicationState[peer.Id].nextIndex)
 	}
 
 	peerState := n.leaderReplicationState[peer.Id]
@@ -101,14 +107,16 @@ func (n *Node) getAppendEntryRequest(peer Peer) AppendEntriesRequest {
 			LeaderCommit: n.state.commitIndex,
 		}
 	}
-	missing_logs_count := n.state.Logger.LastLogIndex() - prevLog.Index
-	if missing_logs_count > 100 {
-		missing_logs_count = 100
-	}
-	missing_logs, err := n.state.GetRange(peerState.nextIndex, peerState.nextIndex+missing_logs_count)
+	missing_logs_count := n.state.Logger.LastLogIndex() - peerState.nextIndex
+	log.Printf("Node %d: peer %d next index %d n.lastlogindex %d\n", n.state.id, peer.Id, peerState.nextIndex, n.state.Logger.LastLogIndex())
+	missing_logs, err := n.state.GetRange(peerState.nextIndex, n.state.Logger.LastLogIndex())
 	if err != nil {
 		// Handle the error
-		log.Println("Error getting missing logs", err)
+		log.Printf("Error getting missing logs n.LastLogIndex %d peerNextindex %d missing %d\n",
+			n.state.Logger.LastLogIndex(),
+			peerState.nextIndex,
+			missing_logs_count,
+		)
 	}
 	request := AppendEntriesRequest{
 		Term:         n.state.currentTerm,
@@ -156,13 +164,6 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 		log.Printf("Node %d: network error sending entries to peer %dd\n", n.state.id, peer.Id)
 	}
 
-}
-
-func (n *Node) handleAppendEntriesResponse(response AppendEntriesResponse) {
-	// Handle a response from peer a who me made an AppendEntries RPC to
-}
-
-func (n *Node) sendHeartbeat(peer Peer) {
 }
 
 func (n *Node) largestCommittedIndex(p *map[uint64]FollowerReplicationState) uint64 {
