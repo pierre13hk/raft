@@ -1,0 +1,25 @@
+services:
+  node1:
+    build: .
+    ports:
+      - "9001:9001"
+    environment:
+      - ID=1
+      - PORT=9001
+      - PEERS=2|node2:9002,3|node3:9003
+  node2:
+    build: .
+    ports:
+      - "9002:9002"
+    environment:
+      - ID=2
+      - PORT=9002
+      - PEERS=1|node1:9001,3|node3:9003
+  node3:
+    build: .
+    ports:
+      - "9003:9003"
+    environment:
+      - ID=3
+      - PORT=9003
+      - PEERS=1|node1:9001,2|node2:9002
