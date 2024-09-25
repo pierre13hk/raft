@@ -5,8 +5,7 @@ type RaftClient interface {
 	Write(request ClientRequest) ClientRequestResponse
 }
 
-
 type RaftGrpcClient struct {
-	leaderId uint64
+	leaderId   uint64
 	leaderAddr string
 }
