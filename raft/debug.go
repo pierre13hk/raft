@@ -131,13 +131,21 @@ func (r *InMemoryRaftRPC) ForwardToLeaderRPC(peer Peer, req ClientRequest) (Clie
 	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 	node := r.Peers[peer.Id]
-	return node.clientRequestHandler(req), nil
+	return node.HandleClientRequest(req), nil
 }
 
 func (r *InMemoryRaftRPC) JoinClusterRPC(peer Peer, req JoinClusterRequest) (JoinClusterResponse, error) {
 	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 	return JoinClusterResponse{}, errors.New("Not implemented")
+}
+
+func (r *InMemoryRaftRPC) AddClientRPC() (*ClusterInfo, error) {
+	return &ClusterInfo{}, errors.New("Not implemented")
+}
+
+func (r *InMemoryRaftRPC) ClientWriteRPC(peer Peer, req ClientRequest) (ClientRequestResponse, error) {
+	return ClientRequestResponse{}, errors.New("Not implemented")
 }
 
 /* Debug StateMachine */
@@ -196,7 +204,7 @@ func (n *DebugNode) Stop() []LogEntry {
 func (n *DebugNode) Apply(command []byte) error {
 	n.Lock()
 	defer n.Unlock()
-	resp := n.Node.clientRequestHandler(ClientRequest{Command: command})
+	resp := n.Node.HandleClientRequest(ClientRequest{Command: command})
 	if resp.Success {
 		return nil
 	} else {

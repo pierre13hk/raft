@@ -1,8 +1,18 @@
 package raft
 
-import (
-	"log"
-)
+import "log"
+
+type ClusterInfo struct {
+	LeaderId      uint64
+	LeaderAddress string
+}
+
+func (n *Node) HandleClientHello() ClusterInfo {
+	return ClusterInfo{
+		LeaderId:      n.state.votedFor,
+		LeaderAddress: n.getPeer(n.state.votedFor).Addr,
+	}
+}
 
 type ClientRequest struct {
 	Command []byte
@@ -12,31 +22,24 @@ type ClientRequestResponse struct {
 	Success bool
 }
 
-func (n *Node) clientRequestHandler(request ClientRequest) ClientRequestResponse {
-	/* Append the command to the log */
-	log.Printf("Node %d received client request %s\n", n.state.id, string(request.Command))
+func (n *Node) HandleClientRequest(request ClientRequest) ClientRequestResponse {
+	// Only handle one client request at a time
+	n.clientRequestMutex.Lock()
+	defer n.clientRequestMutex.Unlock()
+
 	if n.role != Leader {
-		peer, err := n.GetLeader()
-		if err != nil {
-			log.Printf("Node %d: No leader found\n", n.state.id)
-			return ClientRequestResponse{Success: false}
-		}
-		log.Printf("Node %d: Forwarding request to leader %d\n", n.state.id, peer.Id)
-		resp, err := n.ForwardToLeaderRPC(peer, request)
-		if err != nil {
-			return ClientRequestResponse{Success: false}
-		}
-		return resp
-	} else {
-		log.Printf("Node %d (leader): Appending command to log\n", n.state.id)
-		n.state.Append([]LogEntry{LogEntry{
-			Term:    n.state.currentTerm,
-			Index:   n.state.LastLogIndex() + 1,
-			Command: request.Command,
-		}})
-		n.appendEntries()
-		return ClientRequestResponse{Success: true}
+		log.Println("HandleClientRequest: Node ", n.state.id, " is not the leader")
+		return ClientRequestResponse{Success: false}
 	}
+
+	n.channels.clientRequestChannel <- request
+	response := <-n.channels.clientResponseChannel
+	if !response.Success {
+		log.Println("HandleClientRequest: Node ", n.state.id, " failed to handle client request")
+	}
+	log.Println("HandleClientRequest: Node ", n.state.id, " handled client request")
+	return ClientRequestResponse{Success: response.Success}
+
 }
 
 type JoinClusterRequest struct {

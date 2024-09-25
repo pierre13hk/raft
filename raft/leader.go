@@ -79,10 +79,10 @@ func (n *Node) appendEntries() bool {
 		if last_log_term == n.state.currentTerm {
 			n.commitEntries()
 		}
-		log.Println("Node ", n.state.id, " replicated log entries to majority of peers\n ^^^^^^^^^^^^^^^^^")
+		log.Println("Node ", n.state.id, " replicated log entries to majority of peers")
 		return true
 	} else {
-		log.Println("Node ", n.state.id, " couldn't replicate log entries to majority of peers\n ^^^^^^^^^^^^^^^^^")
+		log.Println("Node ", n.state.id, " couldn't replicate log entries to majority of peers")
 		return false
 	}
 }
@@ -153,6 +153,7 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 			// handle term difference later
 			if state.nextIndex > 0 {
 				state.nextIndex -= 1
+				log.Println("Node ", n.state.id, " decremented next index for peer ", peer.Id)
 			} else {
 				log.Panic("Node ", n.state.id, " can't find a common log entry with peer ", peer.Id)
 			}
@@ -161,9 +162,8 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 		}
 	} else {
 		replicated <- false
-		log.Printf("Node %d: network error sending entries to peer %dd\n", n.state.id, peer.Id)
+		log.Printf("Node %d: network error sending entries to peer %d: %s\n", n.state.id, peer.Id, err)
 	}
-
 }
 
 func (n *Node) largestCommittedIndex(p *map[uint64]FollowerReplicationState) uint64 {
@@ -188,4 +188,18 @@ func (n *Node) largestCommittedIndex(p *map[uint64]FollowerReplicationState) uin
 		idx -= 1
 	}
 	return matchIndexes[idx]
+}
+
+func (n *Node) write(request ClientRequest) {
+	/* Write entries to the log */
+	logEntry := LogEntry{
+		Term:    n.state.currentTerm,
+		Index:   n.state.Logger.LastLogIndex() + 1,
+		Type:    USER_LOG,
+		Command: request.Command,
+	}
+
+	n.state.Logger.Append([]LogEntry{logEntry})
+	replicated := n.appendEntries()
+	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
 }

@@ -4,14 +4,17 @@ import (
 	"context"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	rft "raft.com/raft"
 )
 
 type RaftRpcImplem struct {
 	UnimplementedRaftNodeServer
+	UnimplementedRaftClientServiceServer
 	node *rft.Node
 }
 
@@ -40,6 +43,7 @@ func (server *RaftRpcImplem) Start() {
 	log.Printf("Starting RPC server listening on %s\n", server.node.Addr)
 	grpcServer := grpc.NewServer()
 	RegisterRaftNodeServer(grpcServer, server)
+	RegisterRaftClientServiceServer(grpcServer, server)
 	go grpcServer.Serve(lis)
 	log.Printf("RPC server started\n")
 }
@@ -89,7 +93,9 @@ func (server *RaftRpcImplem) AppendEntriesRPC(peer rft.Peer, request rft.AppendE
 	if err != nil {
 		return rft.AppendEntriesResponse{}, err
 	}
-	grpcAppendEntriesResponse, err := client.AppendEntries(context.Background(), grpcAppendEntriesRequest)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	grpcAppendEntriesResponse, err := client.AppendEntries(ctx, grpcAppendEntriesRequest)
 	if err != nil {
 		return rft.AppendEntriesResponse{}, err
 	}
@@ -100,6 +106,14 @@ func (server *RaftRpcImplem) AppendEntriesRPC(peer rft.Peer, request rft.AppendE
 	return raftAppendEntriesResponse, nil
 }
 
+func (server *RaftRpcImplem) AddClientRPC() (*rft.ClusterInfo, error) {
+	return &rft.ClusterInfo{}, nil
+}
+
+func (server *RaftRpcImplem) ClientWriteRPC(peer rft.Peer, req rft.ClientRequest) (rft.ClientRequestResponse, error) {
+	return rft.ClientRequestResponse{}, nil
+}
+
 func (server *RaftRpcImplem) ForwardToLeaderRPC(peer rft.Peer, req rft.ClientRequest) (rft.ClientRequestResponse, error) {
 	return rft.ClientRequestResponse{}, nil
 }
@@ -108,7 +122,7 @@ func (server *RaftRpcImplem) JoinClusterRPC(peer rft.Peer, req rft.JoinClusterRe
 	return rft.JoinClusterResponse{}, nil
 }
 
-// gRPC server implementation
+// gRPC raft server implementation
 func (server *RaftRpcImplem) RequestVote(ctx context.Context, ballot *RPCBallot) (*RPCBallotResponse, error) {
 	raftBallot := rft.Ballot{
 		Term:         ballot.Term,
@@ -124,6 +138,7 @@ func (server *RaftRpcImplem) RequestVote(ctx context.Context, ballot *RPCBallot)
 
 	return grpcBallotResponse, nil
 }
+
 func (server *RaftRpcImplem) AppendEntries(context context.Context, request *RPCAppendEntriesRequest) (*RPCAppendEntriesResponse, error) {
 	entries := make([]rft.LogEntry, len(request.Entries))
 	for i, entry := range request.Entries {
@@ -148,4 +163,26 @@ func (server *RaftRpcImplem) AppendEntries(context context.Context, request *RPC
 		Success: raftAppendEntriesResponse.Success,
 	}
 	return grpcAppendEntriesResponse, nil
+}
+
+// gRPC raft client service implementation
+
+func (server *RaftRpcImplem) AddClient(ctx context.Context, e *emptypb.Empty) (*ClusterInfo, error) {
+	leaderId, leaderAddr := server.node.GetLeaderInfo()
+	clusterInfo := &ClusterInfo{
+		LeaderId:   leaderId,
+		LeaderAddr: leaderAddr,
+	}
+	return clusterInfo, nil
+}
+func (server *RaftRpcImplem) Write(ctx context.Context, request *WriteRequest) (*WriteResponse, error) {
+	var command string = request.Command
+	var raftRequest rft.ClientRequest = rft.ClientRequest{
+		Command: []byte(command),
+	}
+	var raftResponse rft.ClientRequestResponse = server.node.HandleClientRequest(raftRequest)
+	response := &WriteResponse{
+		Success: raftResponse.Success,
+	}
+	return response, nil
 }

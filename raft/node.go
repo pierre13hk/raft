@@ -51,6 +51,8 @@ type NodeConfig struct {
 }
 
 type NodeChannels struct {
+	clientRequestChannel       chan ClientRequest
+	clientResponseChannel      chan ClientRequestResponse
 	requestVoteChannel         chan Ballot
 	requestVoteResponseChannel chan BallotResponse
 	installSnapshotChannel     chan InstallSnapshotRequest
@@ -78,6 +80,7 @@ type Node struct {
 	run                    bool
 
 	*sync.Mutex
+	clientRequestMutex *sync.Mutex
 }
 
 func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachine, confDir string) *Node {
@@ -110,11 +113,14 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		RaftRPC:      rpcImplem,
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
 		channels: NodeChannels{
+			clientRequestChannel:       make(chan ClientRequest, 1),
+			clientResponseChannel:      make(chan ClientRequestResponse, 1),
 			requestVoteChannel:         make(chan Ballot, 100),
 			requestVoteResponseChannel: make(chan BallotResponse, 100),
 			installSnapshotChannel:     make(chan InstallSnapshotRequest, 100),
 		},
-		Mutex: &sync.Mutex{},
+		Mutex:              &sync.Mutex{},
+		clientRequestMutex: &sync.Mutex{},
 	}
 	node.RaftRPC.RegisterNode(&node)
 	node.RaftRPC.Start()
@@ -124,7 +130,10 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 func (n *Node) Start() {
 	/* Start the node */
 	n.run = true
+	wg := sync.WaitGroup{}
 	go n.nodeDaemon()
+	wg.Add(1)
+	wg.Wait()
 	log.Println("Node started")
 }
 
@@ -167,6 +176,8 @@ func (n *Node) nodeDaemon() {
 		select {
 		case <-n.timer.C:
 			n.handleTimeout()
+		case clientRequest := <-n.channels.clientRequestChannel:
+			n.write(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
 			n.HandleVoteRequest(ballot)
 		case ballotResponse := <-n.channels.requestVoteResponseChannel:
@@ -177,14 +188,10 @@ func (n *Node) nodeDaemon() {
 
 func (n *Node) GetLeader() (Peer, error) {
 	/* Get the leader */
-	if n.role != Leader {
-		for _, peer := range n.Peers {
-			if peer.Id == n.state.votedFor {
-				return peer, nil
-			}
-		}
+	if n.role == Leader {
+		return Peer{Id: n.state.id, Addr: n.Addr}, nil
 	}
-	return Peer{n.state.id, "la"}, nil
+	return n.getPeer(n.state.votedFor), nil
 }
 
 func (n *Node) handleTimeout() {
@@ -225,4 +232,22 @@ func (n *Node) commitEntries() {
 	)
 	n.state.lastApplied = n.state.commitIndex
 	n.state.commitIndex = n.state.LastLogIndex()
+}
+
+func (n *Node) getPeer(peerId uint64) Peer {
+	for _, peer := range n.Peers {
+		if peer.Id == peerId {
+			return peer
+		}
+	}
+	return Peer{}
+}
+
+func (n *Node) GetLeaderInfo() (uint64, string) {
+	/* Get leader info */
+	leader, err := n.GetLeader()
+	if err != nil {
+		return 0, ""
+	}
+	return leader.Id, leader.Addr
 }
