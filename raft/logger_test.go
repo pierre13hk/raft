@@ -381,5 +381,35 @@ func TestLogFileCursor(t *testing.T) {
 	if logger2.inMemEntries[1].Index != 4 {
 		t.Fatalf("expected second entry to be index 4, got %d", logger2.inMemEntries[1].Index)
 	}
+}
 
+func TestReadWrite(t *testing.T) {
+	logger := newLogger(t)
+	err := logger.Append([]LogEntry{
+		{Term: 1, Index: 1, Command: []byte("a 1 * 3")},
+		{Term: 1, Index: 2, Command: []byte("b 2 * 3")},
+		{Term: 1, Index: 3, Command: []byte("c 3 * 3")},
+	})
+	if err != nil {
+		t.Fatalf("expected entries to be appended")
+	}
+
+	logger2 := NewLoggerImplem(
+		&DebugStateMachine{},
+		logger.confDir,
+		'\n',
+	)
+	if len(logger2.inMemEntries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(logger2.inMemEntries))
+	}
+	for idx, _ := range logger2.inMemEntries {
+		wrote := logger.inMemEntries[idx]
+		read := logger2.inMemEntries[idx]
+		if wrote.Term != read.Term || wrote.Index != read.Index {
+			t.Fatalf("expected entries log info to be equal")
+		}
+		if string(wrote.Command) != string(read.Command) {
+			t.Fatalf("expected entry commands to be equal, want:[%s] have:[%s]", string(wrote.Command), string(read.Command))
+		}
+	}
 }

@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -26,11 +28,12 @@ var (
 )
 
 const (
-	logFileName    = "raft.log"
-	configFileName = "logger.conf"
-	snapshotDir    = "snapshots"
-	spashotSuffix  = ".snapshot"
-	logEntryFormat = "%d,%d,%d,%s"
+	logFileName          = "raft.log"
+	configFileName       = "logger.conf"
+	snapshotDir          = "snapshots"
+	spashotSuffix        = ".snapshot"
+	logEntryDataSplitter = ","
+	logEntryFormat       = "%d,%d,%d,%s"
 )
 
 type LogEntry struct {
@@ -47,10 +50,21 @@ func (l LogEntry) String() string {
 func StringToLogEntry(s string) (LogEntry, error) {
 	var term, index, logType uint64
 	var command string
-	n, err := fmt.Sscanf(s, logEntryFormat, &term, &index, &logType, &command)
-	if n != 4 || err != nil {
+	var err error
+	components := strings.Split(s, logEntryDataSplitter)
+	if len(components) != 4 {
 		return LogEntry{}, FileError
 	}
+	if term, err = strconv.ParseUint(components[0], 10, 64); err != nil {
+		return LogEntry{}, FileError
+	}
+	if index, err = strconv.ParseUint(components[1], 10, 64); err != nil {
+		return LogEntry{}, FileError
+	}
+	if logType, err = strconv.ParseUint(components[2], 10, 64); err != nil {
+		return LogEntry{}, FileError
+	}
+	command = components[3]
 	return LogEntry{Term: term, Index: index, Type: uint32(logType), Command: []byte(command)}, nil
 }
 
