@@ -59,6 +59,8 @@ type Logger interface {
 	TruncateTo(index uint64) error
 	// Remove all logs from the beginning to the given index (inclusive)
 	Cut(index uint64) error
+	// Returns true if the log is empty
+	Empty() bool
 	// Get the term of the last log entry
 	LastLogTerm() uint64
 	// Get the index of the last log entry
@@ -184,6 +186,10 @@ func (l *LoggerImplem) LastLogTerm() uint64 {
 
 func (l *LoggerImplem) LastLogIndex() uint64 {
 	return l.inMemEntries[len(l.inMemEntries)-1].Index
+}
+
+func (l *LoggerImplem) Empty() bool {
+	return len(l.inMemEntries) == 0
 }
 
 func (l *LoggerImplem) Get(index uint64) (LogEntry, error) {

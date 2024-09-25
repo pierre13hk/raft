@@ -84,6 +84,10 @@ func (l *InMemoryLogger) InstallSnapshot(data []byte, lastIncluded uint64) error
 	return nil
 }
 
+func (l *InMemoryLogger) Empty() bool {
+	return len(l.entries) == 0
+}
+
 /* Debug RPC */
 type InMemoryRaftRPC struct {
 	Peers map[uint64]*Node

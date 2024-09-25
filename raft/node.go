@@ -89,14 +89,16 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		confDir,
 		'\n',
 	)
-	appendErr := logger.Append([]LogEntry{{
-		Term:    0,
-		Index:   0,
-		Type:    RAFT_LOG,
-		Command: []byte("logger init"),
-	}})
-	if appendErr != nil {
-		log.Println("Error initializing logger")
+	if logger.Empty() {
+		appendErr := logger.Append([]LogEntry{{
+			Term:    0,
+			Index:   0,
+			Type:    RAFT_LOG,
+			Command: []byte("logger init"),
+		}})
+		if appendErr != nil {
+			log.Println("Error initializing logger")
+		}
 	}
 	node := Node{
 		Addr: addr,
