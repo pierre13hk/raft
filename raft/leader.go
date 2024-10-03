@@ -89,6 +89,7 @@ func (n *Node) appendEntries() bool {
 
 func (n *Node) getAppendEntryRequest(peer Peer) AppendEntriesRequest {
 	/* Get an AppendEntriesRequest for a peer */
+
 	prevLog, err := n.state.Get(n.leaderReplicationState[peer.Id].nextIndex - 1)
 	if err != nil {
 		// Handle the error
@@ -153,7 +154,7 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 			// handle term difference later
 			if state.nextIndex > 0 {
 				state.nextIndex -= 1
-				log.Println("Node ", n.state.id, " decremented next index for peer ", peer.Id)
+				log.Println("Node ", n.state.id, " decremented next index for peer ", peer.Id, " to ", state.nextIndex)
 			} else {
 				log.Panic("Node ", n.state.id, " can't find a common log entry with peer ", peer.Id)
 			}
