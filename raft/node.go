@@ -51,11 +51,14 @@ type NodeConfig struct {
 }
 
 type NodeChannels struct {
-	clientRequestChannel       chan ClientRequest
-	clientResponseChannel      chan ClientRequestResponse
-	requestVoteChannel         chan Ballot
-	requestVoteResponseChannel chan BallotResponse
-	installSnapshotChannel     chan InstallSnapshotRequest
+	clientRequestChannel         chan ClientRequest
+	clientResponseChannel        chan ClientRequestResponse
+	electionChannel              chan BallotResponse
+	requestVoteChannel           chan Ballot
+	requestVoteResponseChannel   chan BallotResponse
+	installSnapshotChannel       chan InstallSnapshotRequest
+	appendEntriesRequestChannel  chan AppendEntriesRequest
+	appendEntriesResponseChannel chan AppendEntriesResponse
 }
 type ElectionState struct {
 	votesReceived int
@@ -70,7 +73,6 @@ type Node struct {
 	RaftRPC
 	Peers []Peer
 
-	electionChannel     chan BallotResponse
 	timer               *time.Timer
 	timerBackoffCounter int
 
@@ -115,11 +117,14 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		RaftRPC:      rpcImplem,
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
 		channels: NodeChannels{
-			clientRequestChannel:       make(chan ClientRequest, 1),
-			clientResponseChannel:      make(chan ClientRequestResponse, 1),
-			requestVoteChannel:         make(chan Ballot, 100),
-			requestVoteResponseChannel: make(chan BallotResponse, 100),
-			installSnapshotChannel:     make(chan InstallSnapshotRequest, 100),
+			clientRequestChannel:         make(chan ClientRequest, 1),
+			clientResponseChannel:        make(chan ClientRequestResponse, 1),
+			electionChannel:              make(chan BallotResponse, 100),
+			requestVoteChannel:           make(chan Ballot, 1),
+			requestVoteResponseChannel:   make(chan BallotResponse, 1),
+			installSnapshotChannel:       make(chan InstallSnapshotRequest, 100),
+			appendEntriesRequestChannel:  make(chan AppendEntriesRequest, 1),
+			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 1),
 		},
 		Mutex:              &sync.Mutex{},
 		clientRequestMutex: &sync.Mutex{},
@@ -181,10 +186,16 @@ func (n *Node) nodeDaemon() {
 		case clientRequest := <-n.channels.clientRequestChannel:
 			n.write(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
-			n.HandleVoteRequest(ballot)
-		case ballotResponse := <-n.channels.requestVoteResponseChannel:
+			// when any node receives a vote request
+			n.handleVoteRequest(ballot)
+		case ballotResponse := <-n.channels.electionChannel:
+			// when a candidate collects votes
 			n.HandleVoteRequestResponse(ballotResponse)
+		case appendEntriesRequest := <-n.channels.appendEntriesRequestChannel:
+			// when a node, normally a folower, receives append entries request
+			n.handleRecvAppendEntries(appendEntriesRequest)
 		}
+
 	}
 }
 

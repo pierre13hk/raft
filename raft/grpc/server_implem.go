@@ -130,7 +130,7 @@ func (server *RaftRpcImplem) RequestVote(ctx context.Context, ballot *RPCBallot)
 		LastLogIndex: ballot.LastLogIndex,
 		LastLogTerm:  ballot.LastLogTerm,
 	}
-	raftBallotResponse := server.node.HandleVoteRequest(raftBallot)
+	raftBallotResponse := server.node.RecvVoteRequest(raftBallot)
 	grpcBallotResponse := &RPCBallotResponse{
 		Term:        raftBallotResponse.Term,
 		VoteGranted: raftBallotResponse.VoteGranted,
@@ -157,6 +157,7 @@ func (server *RaftRpcImplem) AppendEntries(context context.Context, request *RPC
 		Entries:      entries,
 		LeaderCommit: request.LeaderCommit,
 	}
+	
 	raftAppendEntriesResponse := server.node.RecvAppendEntries(raftAppendEntriesRequest)
 	grpcAppendEntriesResponse := &RPCAppendEntriesResponse{
 		Term:    raftAppendEntriesResponse.Term,

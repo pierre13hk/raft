@@ -111,7 +111,7 @@ func (r *InMemoryRaftRPC) RequestVoteRPC(p Peer, ballot Ballot) (BallotResponse,
 	// Simulate network latency
 	//time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
-	response := peer.HandleVoteRequest(ballot)
+	response := peer.RecvVoteRequest(ballot)
 
 	return response, nil
 }

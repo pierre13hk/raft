@@ -21,7 +21,7 @@ func TestInitialHeartBeat(t *testing.T) {
 		t.Fatalf("expected leader commit to be 0, got %d", heartbeatRequest.LeaderCommit)
 	}
 	follower := NewNode(2, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
-	response := follower.RecvAppendEntries(heartbeatRequest)
+	response := follower.checkAppendEntriesRequest(heartbeatRequest)
 	if !response.Success {
 		t.Fatalf("expected success, got %v", response)
 	}

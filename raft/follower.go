@@ -4,7 +4,7 @@ import (
 	"log"
 )
 
-func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
+func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntriesResponse {
 	/* AppendEntries RPC */
 	if req.Term < n.state.currentTerm {
 		log.Printf("Node %d: AppendEntries: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
@@ -51,6 +51,18 @@ func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse
 		n.commitEntries()
 	}
 	return AppendEntriesResponse{n.state.currentTerm, true}
+}
+
+func (n *Node) handleRecvAppendEntries(req AppendEntriesRequest) {
+	/* Called by a node when it receives an AppendEntries request */
+	resp := n.checkAppendEntriesRequest(req)
+	n.channels.appendEntriesResponseChannel <- resp
+}
+
+func (n *Node) RecvAppendEntries(req AppendEntriesRequest) AppendEntriesResponse {
+	/* Called by the RPC layer when a node receives an AppendEntries RPC */
+	n.channels.appendEntriesRequestChannel <- req
+	return <-n.channels.appendEntriesResponseChannel
 }
 
 type InstallSnapshotRequest struct {

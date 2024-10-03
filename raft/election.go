@@ -18,9 +18,9 @@ type BallotResponse struct {
 	VoteGranted bool
 }
 
-func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
+func (n *Node) checkVoteRequest(ballot Ballot) BallotResponse {
 	/*
-	 * Run by a node when it receives a RequestVote rpc
+	 * Determine if we should vote for the candidate given the ballot
 	 */
 	log.Printf("Node %d received RequestVote from %d, local term %d vs ballot term %d\n", n.state.id, ballot.CandidateId, n.state.currentTerm, ballot.Term)
 	/* We have a newer term */
@@ -58,6 +58,21 @@ func (n *Node) HandleVoteRequest(ballot Ballot) BallotResponse {
 	return BallotResponse{Term: ballot.Term, VoteGranted: true}
 }
 
+func (n *Node) handleVoteRequest(ballot Ballot) {
+	/*
+	 * Run by a candidate when it receives a vote
+	 */
+	n.channels.requestVoteResponseChannel <- n.checkVoteRequest(ballot)
+}
+
+func (n *Node) RecvVoteRequest(ballot Ballot) BallotResponse {
+	/*
+	 * Called by the RPC layer when a node receives a RequestVote rpc
+	 */
+	n.channels.requestVoteChannel <- ballot
+	return <-n.channels.requestVoteResponseChannel
+}
+
 func (n *Node) StartElection() {
 	log.Printf("Node %d starting election\n", n.state.id)
 	n.StopTimer()
@@ -77,7 +92,6 @@ func (n *Node) StartElection() {
 
 	/* Send RequestVote rpc to all other nodes */
 
-	n.electionChannel = make(chan BallotResponse, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
 			continue
@@ -91,7 +105,7 @@ func (n *Node) StartElection() {
 func (n *Node) requestVote(peer Peer, ballot Ballot) {
 	ballotResponse, err := n.RequestVoteRPC(peer, ballot)
 	if err == nil {
-		n.channels.requestVoteResponseChannel <- ballotResponse
+		n.channels.electionChannel <- ballotResponse
 	} else {
 		log.Println("Error sending RequestVote rpc to ", peer.Id, err)
 	}
