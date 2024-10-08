@@ -21,6 +21,8 @@ const (
 	CLUSTER_CHANGE_REMOVE = 16
 )
 
+RAFT_COMMAND_DELIMITER := ","
+
 var (
 	InvalidIndexError    = errors.New("invalid index")
 	FileError            = errors.New("file error")
