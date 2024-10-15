@@ -214,9 +214,15 @@ func (n *Node) nodeDaemon() {
 func (n *Node) GetLeader() (Peer, error) {
 	/* Get the leader */
 	if n.role == Leader {
-		return Peer{Id: n.state.id, Addr: n.Addr}, nil
+		return Peer{
+			Id:   n.state.id,
+			Addr: n.Addr,
+		}, nil
 	}
-	return *n.getPeer(n.state.votedFor), nil
+	if n.role == Follower {
+		return *n.getPeer(n.state.votedFor), nil
+	}
+	return Peer{}, errors.New("No leader")
 }
 
 func (n *Node) handleTimeout() {

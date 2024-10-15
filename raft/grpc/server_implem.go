@@ -201,6 +201,9 @@ func (server *RaftRpcImplem) JoinCluster(ctx context.Context, request *RPCJoinCl
 
 func (server *RaftRpcImplem) AddClient(ctx context.Context, e *emptypb.Empty) (*ClusterInfo, error) {
 	leaderId, leaderAddr := server.node.GetLeaderInfo()
+	if leaderId == 0 {
+		return nil, nil
+	}
 	clusterInfo := &ClusterInfo{
 		LeaderId:   leaderId,
 		LeaderAddr: leaderAddr,

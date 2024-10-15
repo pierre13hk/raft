@@ -46,7 +46,7 @@ func (client *RaftGrpcClient) ConnectToCluster(servers []string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
 		defer cancel()
 		clusterInfo, err := tmpClient.AddClient(ctx, &emptypb.Empty{})
-		if err != nil {
+		if err != nil || clusterInfo == nil {
 			log.Println("Client: failed to get cluster information: ", err)
 			continue
 		}
