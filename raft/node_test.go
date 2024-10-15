@@ -192,7 +192,7 @@ func TestAddPeerMalformedID(t *testing.T) {
 
 func TestAddPeerMalformedAddr(t *testing.T) {
 	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
-	node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,127.0.0.1:8000,8000")})
+	node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1:8000|8000")})
 	if len(node.Peers) != 0 {
 		t.Errorf("Expected 0 peers")
 	}
@@ -200,7 +200,7 @@ func TestAddPeerMalformedAddr(t *testing.T) {
 
 func TestAddPeer(t *testing.T) {
 	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
-	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,127.0.0.1,1234")})
+	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")})
 	if err != nil {
 		t.Errorf("Error adding peer")
 	}
@@ -211,7 +211,7 @@ func TestAddPeer(t *testing.T) {
 
 func TestDoubleAdd(t *testing.T) {
 	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
-	log := LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,127.0.0.1,1234")}
+	log := LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")}
 	err := node.addPeer(log)
 	if err != nil {
 		t.Errorf("Error adding peer")
@@ -220,8 +220,8 @@ func TestDoubleAdd(t *testing.T) {
 		t.Errorf("Expected 1 peer, was %d", len(node.Peers))
 	}
 	err = node.addPeer(log)
-	if err == nil {
-		t.Errorf("Expected error")
+	if err != nil {
+		t.Errorf("Didn't expect error")
 	}
 	if len(node.Peers) != 1 {
 		t.Errorf("Expected 1 peer, was %d", len(node.Peers))

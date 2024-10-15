@@ -145,3 +145,29 @@ func TestAppendEntriesToPeerOnTime(t *testing.T) {
 		t.Fatalf("expected leader commit to be %d, got %d", leader.state.commitIndex, request.LeaderCommit)
 	}
 }
+
+func TestCheckJoinClusterRequestAddingPeer(t *testing.T) {
+	/*
+		Test that we can't add a peer if we're already adding a peer.
+	*/
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node.role = Follower | AddingPeer
+	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
+	canAddErr := node.checkCanAddPeer(request)
+	if canAddErr == nil {
+		t.Fatalf("expected err, got")
+	}
+}
+
+func TestCheckJoinClusterRequestNotLeader(t *testing.T) {
+	/*
+		Test that we can't add a peer if we're not the leader.
+	*/
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node.role = Follower
+	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
+	canAddErr := node.checkCanAddPeer(request)
+	if canAddErr == nil {
+		t.Fatalf("expected err, got")
+	}
+}

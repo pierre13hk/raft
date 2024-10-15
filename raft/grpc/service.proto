@@ -38,16 +38,20 @@ message RPCAppendEntriesResponse {
 }
 
 message RPCJoinClusterRequest {
-
+  uint64 id = 1;
+  string addr = 2;
+  string port = 3;
 }
 
 message RPCJoinClusterResponse {
-
+  bool success = 1;
+  string message = 2;
 }
 
 service RaftNode {
   rpc RequestVote(RPCBallot) returns (RPCBallotResponse) {}
   rpc AppendEntries(RPCAppendEntriesRequest) returns (RPCAppendEntriesResponse) {}
+  rpc JoinCluster(RPCJoinClusterRequest) returns (RPCJoinClusterResponse) {}
 }
 
 // Api messages and service for handling client requests

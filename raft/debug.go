@@ -135,7 +135,7 @@ func (r *InMemoryRaftRPC) ForwardToLeaderRPC(peer Peer, req ClientRequest) (Clie
 	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 	node := r.Peers[peer.Id]
-	return node.HandleClientRequest(req), nil
+	return node.RecvClientRequest(req), nil
 }
 
 func (r *InMemoryRaftRPC) JoinClusterRPC(peer Peer, req JoinClusterRequest) (JoinClusterResponse, error) {
@@ -208,7 +208,7 @@ func (n *DebugNode) Stop() []LogEntry {
 func (n *DebugNode) Apply(command []byte) error {
 	n.Lock()
 	defer n.Unlock()
-	resp := n.Node.HandleClientRequest(ClientRequest{Command: command})
+	resp := n.Node.RecvClientRequest(ClientRequest{Command: command})
 	if resp.Success {
 		return nil
 	} else {

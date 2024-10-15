@@ -413,3 +413,13 @@ func TestReadWrite(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatRaftLogCommand(t *testing.T) {
+	// Test that the formatRaftLogCommand function
+	// formats the command as expected
+	expected := "a|1|*|3"
+	formatted := formatRaftLogCommand("a", "1", "*", "3")
+	if formatted != expected {
+		t.Fatalf("expected formatted command to be 'a 1 * 3', got %s", formatted)
+	}
+}

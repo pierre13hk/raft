@@ -18,6 +18,7 @@ const (
 	Candidate
 	Leader
 	ElectionLoser
+	AddingPeer
 )
 
 func (r Role) String() string {
@@ -63,6 +64,8 @@ type NodeChannels struct {
 	installSnapshotChannel       chan InstallSnapshotRequest
 	appendEntriesRequestChannel  chan AppendEntriesRequest
 	appendEntriesResponseChannel chan AppendEntriesResponse
+	addPeerChannel               chan JoinClusterRequest
+	JoinClusterResponseChannel   chan JoinClusterResponse
 }
 type ElectionState struct {
 	votesReceived int
@@ -129,6 +132,8 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 			installSnapshotChannel:       make(chan InstallSnapshotRequest, 100),
 			appendEntriesRequestChannel:  make(chan AppendEntriesRequest, 1),
 			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 1),
+			addPeerChannel:               make(chan JoinClusterRequest, 1),
+			JoinClusterResponseChannel:   make(chan JoinClusterResponse, 1),
 		},
 		Mutex:              &sync.Mutex{},
 		clientRequestMutex: &sync.Mutex{},
@@ -198,6 +203,9 @@ func (n *Node) nodeDaemon() {
 		case appendEntriesRequest := <-n.channels.appendEntriesRequestChannel:
 			// when a node, normally a folower, receives append entries request
 			n.handleRecvAppendEntries(appendEntriesRequest)
+		case JoinClusterRequest := <-n.channels.addPeerChannel:
+			// when a node receives a request to add a peer
+			n.handleJoinClusterRequest(JoinClusterRequest)
 		}
 
 	}
@@ -208,7 +216,7 @@ func (n *Node) GetLeader() (Peer, error) {
 	if n.role == Leader {
 		return Peer{Id: n.state.id, Addr: n.Addr}, nil
 	}
-	return n.getPeer(n.state.votedFor), nil
+	return *n.getPeer(n.state.votedFor), nil
 }
 
 func (n *Node) handleTimeout() {
@@ -239,7 +247,8 @@ func (n *Node) commitEntries() {
 		case RAFT_LOG:
 			// do nothing
 		case CLUSTER_CHANGE_ADD:
-			//
+			n.addPeer(logEntry)
+
 		}
 	}
 	log.Printf("Node %d committed entries from  %d %d\n",
@@ -251,13 +260,13 @@ func (n *Node) commitEntries() {
 	n.state.commitIndex = n.state.LastLogIndex()
 }
 
-func (n *Node) getPeer(peerId uint64) Peer {
+func (n *Node) getPeer(peerId uint64) *Peer {
 	for _, peer := range n.Peers {
 		if peer.Id == peerId {
-			return peer
+			return &peer
 		}
 	}
-	return Peer{}
+	return &Peer{}
 }
 
 func (n *Node) GetLeaderInfo() (uint64, string) {
@@ -301,8 +310,17 @@ func (n *Node) addPeer(logEntry LogEntry) error {
 	}
 	existing := n.getPeer(id)
 	if existing.Id != 0 {
-		return errors.New("Peer already exists")
+		log.Printf("Node %d: peer %d %s already exists\n", n.state.id, id, addr)
+		existing.Addr = addr
+		return nil
 	}
 	n.Peers = append(n.Peers, peer)
+	log.Printf("Node %d added peer %d %s\n", n.state.id, id, addr)
+	if n.role == Leader {
+		n.leaderReplicationState[id] = FollowerReplicationState{
+			nextIndex:  n.state.LastLogIndex() + 1,
+			matchIndex: 0,
+		}
+	}
 	return nil
 }

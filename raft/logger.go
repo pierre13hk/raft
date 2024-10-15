@@ -21,7 +21,7 @@ const (
 	CLUSTER_CHANGE_REMOVE = 16
 )
 
-RAFT_COMMAND_DELIMITER := ","
+const RAFT_COMMAND_DELIMITER = "|"
 
 var (
 	InvalidIndexError    = errors.New("invalid index")
@@ -47,6 +47,10 @@ type LogEntry struct {
 
 func (l LogEntry) String() string {
 	return fmt.Sprintf(logEntryFormat, l.Term, l.Index, l.Type, string(l.Command))
+}
+
+func formatRaftLogCommand(commands ...string) string {
+	return strings.Join(commands, RAFT_COMMAND_DELIMITER)
 }
 
 func StringToLogEntry(s string) (LogEntry, error) {

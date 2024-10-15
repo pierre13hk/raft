@@ -119,7 +119,24 @@ func (server *RaftRpcImplem) ForwardToLeaderRPC(peer rft.Peer, req rft.ClientReq
 }
 
 func (server *RaftRpcImplem) JoinClusterRPC(peer rft.Peer, req rft.JoinClusterRequest) (rft.JoinClusterResponse, error) {
-	return rft.JoinClusterResponse{}, nil
+	grpcJoinRequest := &RPCJoinClusterRequest{
+		Id:   req.Id,
+		Addr: req.Addr,
+		Port: req.Port,
+	}
+	client, err := server.newGRPCClient(peer)
+	if err != nil {
+		return rft.JoinClusterResponse{}, err
+	}
+	grpcJoinResponse, err := client.JoinCluster(context.Background(), grpcJoinRequest)
+	if err != nil {
+		return rft.JoinClusterResponse{}, err
+	}
+	raftJoinResponse := rft.JoinClusterResponse{
+		Success: grpcJoinResponse.Success,
+		Message: grpcJoinResponse.Message,
+	}
+	return raftJoinResponse, nil
 }
 
 // gRPC raft server implementation
@@ -157,13 +174,27 @@ func (server *RaftRpcImplem) AppendEntries(context context.Context, request *RPC
 		Entries:      entries,
 		LeaderCommit: request.LeaderCommit,
 	}
-	
+
 	raftAppendEntriesResponse := server.node.RecvAppendEntries(raftAppendEntriesRequest)
 	grpcAppendEntriesResponse := &RPCAppendEntriesResponse{
 		Term:    raftAppendEntriesResponse.Term,
 		Success: raftAppendEntriesResponse.Success,
 	}
 	return grpcAppendEntriesResponse, nil
+}
+
+func (server *RaftRpcImplem) JoinCluster(ctx context.Context, request *RPCJoinClusterRequest) (*RPCJoinClusterResponse, error) {
+	raftJoinClusterRequest := rft.JoinClusterRequest{
+		Id:   request.Id,
+		Addr: request.Addr,
+		Port: request.Port,
+	}
+	raftJoinClusterResponse := server.node.RecvJoinClusterRequest(raftJoinClusterRequest)
+	grpcJoinClusterResponse := &RPCJoinClusterResponse{
+		Success: raftJoinClusterResponse.Success,
+		Message: raftJoinClusterResponse.Message,
+	}
+	return grpcJoinClusterResponse, nil
 }
 
 // gRPC raft client service implementation
@@ -181,7 +212,7 @@ func (server *RaftRpcImplem) Write(ctx context.Context, request *WriteRequest) (
 	var raftRequest rft.ClientRequest = rft.ClientRequest{
 		Command: []byte(command),
 	}
-	var raftResponse rft.ClientRequestResponse = server.node.HandleClientRequest(raftRequest)
+	var raftResponse rft.ClientRequestResponse = server.node.RecvClientRequest(raftRequest)
 	response := &WriteResponse{
 		Success: raftResponse.Success,
 	}

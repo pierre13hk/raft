@@ -1,6 +1,8 @@
 package raft
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"slices"
 	"time"
@@ -89,7 +91,7 @@ func (n *Node) appendEntries() bool {
 
 func (n *Node) getAppendEntryRequest(peer Peer) AppendEntriesRequest {
 	/* Get an AppendEntriesRequest for a peer */
-
+	log.Println("Node ", n.state.id, " getting append entry request for peer ", peer.Id, " next index ", n.leaderReplicationState[peer.Id].nextIndex)
 	prevLog, err := n.state.Get(n.leaderReplicationState[peer.Id].nextIndex - 1)
 	if err != nil {
 		// Handle the error
@@ -203,4 +205,51 @@ func (n *Node) write(request ClientRequest) {
 	n.state.Logger.Append([]LogEntry{logEntry})
 	replicated := n.appendEntries()
 	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
+}
+
+func (n *Node) checkCanAddPeer(request JoinClusterRequest) error {
+	/* Handle an add peer request */
+	if n.role&AddingPeer != 0 {
+		log.Printf("Node %d: already adding peer\n", n.state.id)
+		return errors.New("Node is already adding a peer")
+	}
+	if n.role != Leader {
+		return errors.New("Node is not the leader")
+	}
+	return nil
+}
+
+func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
+	err := n.checkCanAddPeer(request)
+	if err != nil {
+		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
+		return
+	}
+	log.Printf("Node %d: add peer request %d %s\n", n.state.id, request.Id, request.Addr)
+	strId := fmt.Sprint(request.Id)
+	logCommand := formatRaftLogCommand(strId, request.Addr, request.Port)
+	logEntry := LogEntry{
+		Term:    n.state.currentTerm,
+		Index:   n.state.Logger.LastLogIndex() + 1,
+		Type:    CLUSTER_CHANGE_ADD,
+		Command: []byte(logCommand),
+	}
+	if err := n.addPeer(logEntry); err != nil {
+		log.Printf("Node %d: error adding peer %d %s\n", n.state.id, request.Id, request.Addr)
+		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
+		return
+	}
+
+	log.Printf("fml %x\n", n.leaderReplicationState)
+	n.state.Logger.Append([]LogEntry{logEntry})
+	log.Println()
+	replicated := n.appendEntries()
+	// go n.rpc.InstallSnapshotRPC(peer, snapshot)
+	n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: replicated}
+}
+
+func (n *Node) RecvJoinClusterRequest(request JoinClusterRequest) JoinClusterResponse {
+	/* Receive an add peer request */
+	n.channels.addPeerChannel <- request
+	return <-n.channels.JoinClusterResponseChannel
 }
