@@ -11,7 +11,7 @@ import (
 )
 
 var nbCommands = 50
-var dropRate float32 = 0.5
+var dropRate float32 = 0.95
 
 func NewDropRPC(dropRate float32) raft.RaftRPC {
 	baseRpc := &rpc.RaftRpcImplem{}
@@ -19,10 +19,14 @@ func NewDropRPC(dropRate float32) raft.RaftRPC {
 }
 
 func main() {
-
-	node1 := raft.NewDebugNode(1, "localhost:9001", NewDropRPC(dropRate))
-	node2 := raft.NewDebugNode(2, "localhost:9002", NewDropRPC(dropRate))
-	node3 := raft.NewDebugNode(3, "localhost:9003", NewDropRPC(dropRate))
+	config := raft.NodeConfig{
+		ElectionTimeoutMin: 500,
+		ElectionTimeoutMax: 1500,
+		HeartbeatTimeout:   50,
+	}
+	node1 := raft.NewDebugNode(1, "localhost:9001", NewDropRPC(dropRate), config)
+	node2 := raft.NewDebugNode(2, "localhost:9002", NewDropRPC(dropRate), config)
+	node3 := raft.NewDebugNode(3, "localhost:9003", NewDropRPC(dropRate), config)
 
 	nodes := []*raft.DebugNode{node1, node2, node3}
 
@@ -42,43 +46,45 @@ func main() {
 
 	client := rpc.NewRaftGrpcClient()
 	connectErr := client.ConnectToCluster([]string{"localhost:9001", "localhost:9002", "localhost:9003"})
+
 	if connectErr != nil {
-		fmt.Println("Error connecting to cluster")
+		fmt.Println("Failed to connect to cluster")
 	}
 
 	for i := 0; i < nbCommands; i++ {
-		fmt.Println("Writing command")
-		cmd := fmt.Sprintf("b %d f", i)
-		resp := client.Write(cmd)
-		if !resp.Success {
-			fmt.Println("Error writing command")
-			client.ConnectToCluster([]string{"localhost:9001", "localhost:9002", "localhost:9003"})
-			continue
+		response := client.Write(fmt.Sprintf("command %d", i))
+		if !response.Success {
+			fmt.Println("Failed to write command, retrying to connect to cluster")
+			connectErr = client.ConnectToCluster([]string{"localhost:9001", "localhost:9002", "localhost:9003"})
+			if connectErr != nil {
+				fmt.Println("Failed to connect to cluster")
+			}
+			time.Sleep(1 * time.Second)
 		}
-		fmt.Println("Command written")
+		time.Sleep(100 * time.Millisecond)
+	}
+	dumpedLogs := [][]raft.LogEntry{}
+	for i, node := range nodes {
+		dump := node.Stop()
+		dumpedLogs = append(dumpedLogs, dump)
+		fmt.Println("Node ", i, " logs: ", len(dump))
 	}
 
-	lst := make([][]raft.LogEntry, 0)
-	for _, node := range nodes {
-		lst = append(lst, node.Stop())
-		wg.Done()
-	}
-
-	for i, logs := range lst {
-		if len(logs) != len(lst[0]) {
-			fmt.Printf("Node %d has different log length\n", i+1)
+	minLen := len(dumpedLogs[0])
+	for i := 1; i < len(dumpedLogs); i++ {
+		if len(dumpedLogs[i]) != minLen {
+			fmt.Println("Logs are not the same length")
 		}
-		for j, log := range logs {
-			if log.Term != lst[0][j].Term || log.Index != lst[0][j].Index {
-				fmt.Printf("Node %d has different log at index %d\n", i+1, j+1)
+		if len(dumpedLogs[i]) < minLen {
+			minLen = len(dumpedLogs[i])
+		}
+	}
+	for i := 0; i < minLen; i++ {
+		for j := 0; j < len(dumpedLogs); j++ {
+			if string(dumpedLogs[j][i].Command) != string(dumpedLogs[0][i].Command) {
+				fmt.Println("Logs are not the same")
 			}
 		}
-		fmt.Printf("Node %d has %d logs\n", i+1, len(logs))
 	}
-	for i, _ := range lst[0] {
-		fmt.Printf("Log at index %d: %s | ", lst[0][i].Index, string(lst[0][i].Command))
-		fmt.Printf("Log at index %d: %s | ", lst[1][i].Index, string(lst[1][i].Command))
-		fmt.Printf("Log at index %d: %s | \n", lst[2][i].Index, string(lst[2][i].Command))
-	}
-	wg.Wait()
+
 }
