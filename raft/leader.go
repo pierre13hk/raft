@@ -30,7 +30,7 @@ type AppendEntriesResponse struct {
 func (n *Node) RestartHeartbeatTimerLeader() {
 	/* Restart the heartbeat timer */
 	n.timer.Stop()
-	n.timer.Reset(time.Duration(500) * time.Millisecond)
+	n.timer.Reset(time.Duration(n.config.HeartbeatTimeout))
 }
 
 func (n *Node) becomeLeader() {

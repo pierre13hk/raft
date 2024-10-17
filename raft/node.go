@@ -51,8 +51,9 @@ func (n *NodeState) save() {
 }
 
 type NodeConfig struct {
-	avgTimeout    int
-	timeoutWindow int
+	ElectionTimeoutMin int
+	ElectionTimeoutMax int
+	HeartbeatTimeout int
 }
 
 type NodeChannels struct {
@@ -72,16 +73,15 @@ type ElectionState struct {
 	electionTerm  uint64
 }
 type Node struct {
-	Addr  string
-	state NodeState
-	role  Role
-
+	Addr         string
+	state        NodeState
+	role         Role
+	config       NodeConfig
 	StateMachine StateMachine
 	RaftRPC
 	Peers []Peer
 
-	timer               *time.Timer
-	timerBackoffCounter int
+	timer *time.Timer
 
 	leaderReplicationState map[uint64]FollowerReplicationState
 	electionState          ElectionState
@@ -92,7 +92,7 @@ type Node struct {
 	clientRequestMutex *sync.Mutex
 }
 
-func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachine, confDir string) *Node {
+func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachine, confDir string, config NodeConfig) *Node {
 	logger := NewLoggerImplem(
 		statemachine,
 		confDir,
@@ -120,6 +120,7 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 			Logger:      logger,
 		},
 		role:         Follower,
+		config:       config,
 		StateMachine: &DebugStateMachine{},
 		RaftRPC:      rpcImplem,
 		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
@@ -159,7 +160,7 @@ func (n *Node) Stop() {
 
 func (n *Node) RestartElectionTimer() {
 	n.StopTimer()
-	t := rand.Intn(4000)
+	t := rand.Intn(n.config.ElectionTimeoutMax-n.config.ElectionTimeoutMin) + n.config.ElectionTimeoutMin
 	n.timer.Reset(time.Duration(t) * time.Millisecond)
 
 }
@@ -167,13 +168,13 @@ func (n *Node) RestartElectionTimer() {
 func (n *Node) RestartHeartbeatTimer() {
 	/* Restart the heartbeat timer */
 	n.StopTimer()
-	n.timer.Reset(time.Duration(1) * time.Second)
+	n.timer.Reset(time.Duration(n.config.ElectionTimeoutMin) * time.Millisecond)
 }
 
 func (n *Node) RestartLeaderHeartBeatTimer() {
 	/* Restart the heartbeat timer */
 	n.StopTimer()
-	n.timer.Reset(time.Duration(200) * time.Millisecond)
+	n.timer.Reset(time.Duration(n.config.HeartbeatTimeout) * time.Millisecond)
 }
 
 func (n *Node) StopTimer() {

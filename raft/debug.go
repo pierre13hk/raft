@@ -185,9 +185,9 @@ type DebugNode struct {
 	*sync.Mutex
 }
 
-func NewDebugNode(id uint64, addr string, rpc RaftRPC) *DebugNode {
+func NewDebugNode(id uint64, addr string, rpc RaftRPC, config NodeConfig) *DebugNode {
 	return &DebugNode{
-		Node:  NewNode(id, addr, rpc, &DebugStateMachine{}, fmt.Sprintf("./tmp/%d", id)),
+		Node:  NewNode(id, addr, rpc, &DebugStateMachine{}, fmt.Sprintf("./tmp/%d", id), config),
 		Mutex: &sync.Mutex{},
 	}
 }

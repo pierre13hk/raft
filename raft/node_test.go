@@ -8,7 +8,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 
 	// The first data append entries request
 	// sent bn the leader to the followers
@@ -35,7 +35,7 @@ func TestAppendEntriesWithConflict(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 
 	// The first data append entries request
 	// sent by the leader to the followers
@@ -88,7 +88,7 @@ func TestAppendEntriesWithConflict2(t *testing.T) {
 		logs a, b and c should be deleted
 	*/
 
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	req := AppendEntriesRequest{
 		Term:         3,
 		LeaderId:     123,
@@ -119,7 +119,7 @@ func TestAppendEntriesFollowerNewLeader(t *testing.T) {
 		Check that this node will accept the new leader's log entries.
 	*/
 
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	node.state.Append([]LogEntry{
 		{Term: 1, Index: 1, Command: []byte("a")},
 		{Term: 1, Index: 2, Command: []byte("b")},
@@ -151,7 +151,7 @@ func TestAddPeerWrongLogType(t *testing.T) {
 	/*
 		Test the addPeer method with a log entry that is not a cluster change
 	*/
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	err := node.addPeer(LogEntry{Type: USER_LOG, Command: []byte("1,localhost,1234")})
 	if err == nil {
 		t.Errorf("Expected error")
@@ -165,7 +165,7 @@ func TestAddPeerMissingInfo(t *testing.T) {
 	/*
 		Test the addPeer method with a log entry that is not a cluster change
 	*/
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,")})
 	if err == nil {
 		t.Errorf("Expected error")
@@ -180,7 +180,7 @@ func TestAddPeerMissingInfo(t *testing.T) {
 }
 
 func TestAddPeerMalformedID(t *testing.T) {
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("abc,localhost,1234")})
 	if err == nil {
 		t.Errorf("Expected error")
@@ -191,7 +191,7 @@ func TestAddPeerMalformedID(t *testing.T) {
 }
 
 func TestAddPeerMalformedAddr(t *testing.T) {
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1:8000|8000")})
 	if len(node.Peers) != 0 {
 		t.Errorf("Expected 0 peers")
@@ -199,7 +199,7 @@ func TestAddPeerMalformedAddr(t *testing.T) {
 }
 
 func TestAddPeer(t *testing.T) {
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")})
 	if err != nil {
 		t.Errorf("Error adding peer")
@@ -210,7 +210,7 @@ func TestAddPeer(t *testing.T) {
 }
 
 func TestDoubleAdd(t *testing.T) {
-	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node := NewNode(10, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 	log := LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")}
 	err := node.addPeer(log)
 	if err != nil {

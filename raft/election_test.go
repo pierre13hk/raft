@@ -6,9 +6,9 @@ import (
 )
 
 func TestRequestVote(t *testing.T) {
-	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
-	node2 := NewNode(2, "localhost:1235", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
-	node3 := NewNode(3, "localhost:1236", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir())
+	node1 := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	node2 := NewNode(2, "localhost:1235", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	node3 := NewNode(3, "localhost:1236", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
 
 	node1.Peers = []Peer{{Id: 2}, {Id: 3}}
 
