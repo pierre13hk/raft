@@ -53,7 +53,7 @@ func (n *NodeState) save() {
 type NodeConfig struct {
 	ElectionTimeoutMin int
 	ElectionTimeoutMax int
-	HeartbeatTimeout int
+	HeartbeatTimeout   int
 }
 
 type NodeChannels struct {
@@ -81,7 +81,8 @@ type Node struct {
 	RaftRPC
 	Peers []Peer
 
-	timer *time.Timer
+	electionTimer  *time.Timer
+	heartbeatTimer *time.Timer
 
 	leaderReplicationState map[uint64]FollowerReplicationState
 	electionState          ElectionState
@@ -119,11 +120,12 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 			lastApplied: 0,
 			Logger:      logger,
 		},
-		role:         Follower,
-		config:       config,
-		StateMachine: &DebugStateMachine{},
-		RaftRPC:      rpcImplem,
-		timer:        time.NewTimer(time.Duration(200+rand.Intn(150)) * time.Millisecond),
+		role:           Follower,
+		config:         config,
+		StateMachine:   &DebugStateMachine{},
+		RaftRPC:        rpcImplem,
+		electionTimer:  time.NewTimer(time.Duration(rand.Intn(config.ElectionTimeoutMax)) * time.Millisecond),
+		heartbeatTimer: time.NewTimer(1000 * time.Second),
 		channels: NodeChannels{
 			clientRequestChannel:         make(chan ClientRequest, 1),
 			clientResponseChannel:        make(chan ClientRequestResponse, 1),
@@ -159,28 +161,23 @@ func (n *Node) Stop() {
 }
 
 func (n *Node) RestartElectionTimer() {
-	n.StopTimer()
+	n.StopElectionTimer()
 	t := rand.Intn(n.config.ElectionTimeoutMax-n.config.ElectionTimeoutMin) + n.config.ElectionTimeoutMin
-	n.timer.Reset(time.Duration(t) * time.Millisecond)
+	n.electionTimer.Reset(time.Duration(t) * time.Millisecond)
 
 }
 
 func (n *Node) RestartHeartbeatTimer() {
-	/* Restart the heartbeat timer */
-	n.StopTimer()
-	n.timer.Reset(time.Duration(n.config.ElectionTimeoutMin) * time.Millisecond)
+	/* Restart the heartbeat timer for followers */
+	n.StopElectionTimer()
+	n.electionTimer.Reset(time.Duration(n.config.ElectionTimeoutMin) * time.Millisecond)
 }
 
-func (n *Node) RestartLeaderHeartBeatTimer() {
-	/* Restart the heartbeat timer */
-	n.StopTimer()
-	n.timer.Reset(time.Duration(n.config.HeartbeatTimeout) * time.Millisecond)
-}
 
-func (n *Node) StopTimer() {
-	if !n.timer.Stop() {
+func (n *Node) StopElectionTimer() {
+	if !n.electionTimer.Stop() {
 		select {
-		case <-n.timer.C:
+		case <-n.electionTimer.C:
 		default:
 		}
 	}
@@ -191,8 +188,11 @@ func (n *Node) nodeDaemon() {
 	n.RestartElectionTimer()
 	for n.run {
 		select {
-		case <-n.timer.C:
+		case <-n.electionTimer.C:
 			n.handleTimeout()
+		case <-n.heartbeatTimer.C:
+			// only the leader uses this timer
+			n.appendEntries()
 		case clientRequest := <-n.channels.clientRequestChannel:
 			n.write(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
@@ -228,8 +228,7 @@ func (n *Node) GetLeader() (Peer, error) {
 
 func (n *Node) handleTimeout() {
 	if n.role == Leader {
-		n.appendEntries()
-		return
+		panic("Leader should not have election timeout")
 	}
 	if n.role == Candidate {
 		n.loseElection()

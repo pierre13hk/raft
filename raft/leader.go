@@ -29,8 +29,8 @@ type AppendEntriesResponse struct {
 
 func (n *Node) RestartHeartbeatTimerLeader() {
 	/* Restart the heartbeat timer */
-	n.timer.Stop()
-	n.timer.Reset(time.Duration(n.config.HeartbeatTimeout))
+	n.heartbeatTimer.Stop()
+	n.heartbeatTimer.Reset(time.Duration(n.config.HeartbeatTimeout))
 }
 
 func (n *Node) becomeLeader() {
@@ -54,7 +54,7 @@ func (n *Node) leaderDaemon() {
 
 func (n *Node) appendEntries() bool {
 	/* Replicate log entries to all peers */
-	n.StopTimer()
+	n.StopElectionTimer()
 	replicated := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {

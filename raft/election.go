@@ -75,7 +75,7 @@ func (n *Node) RecvVoteRequest(ballot Ballot) BallotResponse {
 
 func (n *Node) StartElection() {
 	log.Printf("Node %d starting election\n", n.state.id)
-	n.StopTimer()
+	n.StopElectionTimer()
 	n.state.currentTerm += 1
 	n.electionState.electionTerm = n.state.currentTerm
 	n.electionState.votesReceived = 1
