@@ -173,6 +173,11 @@ func (n *Node) RestartHeartbeatTimer() {
 	n.electionTimer.Reset(time.Duration(n.config.ElectionTimeoutMin) * time.Millisecond)
 }
 
+func (n *Node) forceNewElection() {
+	/* Force a new election */
+	n.StopElectionTimer()
+	n.electionTimer.Reset(0 * time.Millisecond)
+}
 
 func (n *Node) StopElectionTimer() {
 	if !n.electionTimer.Stop() {
@@ -227,9 +232,6 @@ func (n *Node) GetLeader() (Peer, error) {
 }
 
 func (n *Node) handleTimeout() {
-	if n.role == Leader {
-		panic("Leader should not have election timeout")
-	}
 	if n.role == Candidate {
 		n.loseElection()
 		return

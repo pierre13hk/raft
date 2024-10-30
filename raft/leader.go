@@ -153,14 +153,25 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 			state.matchIndex = last_replicated_log_index
 			n.leaderReplicationState[peer.Id] = state
 		} else {
-			// handle term difference later
-			if state.nextIndex > 0 {
-				state.nextIndex -= 1
-				log.Println("Node ", n.state.id, " decremented next index for peer ", peer.Id, " to ", state.nextIndex)
+			if n.state.currentTerm < response.Term {
+				/*
+					Handle term difference.
+					This can happen if a peer has been partionned, and has been starting
+					elections that have reached no other peer, and have incremented their
+					term past the leader's term.
+				*/
+				log.Println("Node ", n.state.id, " found term difference with peer ", peer.Id, " forcing new election")
+				n.forceNewElection()
 			} else {
-				log.Panic("Node ", n.state.id, " can't find a common log entry with peer ", peer.Id)
+				// handle term difference later
+				if state.nextIndex > 0 {
+					state.nextIndex -= 1
+					log.Println("Node ", n.state.id, " decremented next index for peer ", peer.Id, " to ", state.nextIndex)
+				} else {
+					log.Panic("Node ", n.state.id, " can't find a common log entry with peer ", peer.Id)
+				}
+				n.leaderReplicationState[peer.Id] = state
 			}
-			n.leaderReplicationState[peer.Id] = state
 			replicated <- false
 		}
 	} else {
