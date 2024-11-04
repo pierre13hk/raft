@@ -30,12 +30,13 @@ type AppendEntriesResponse struct {
 func (n *Node) RestartHeartbeatTimerLeader() {
 	/* Restart the heartbeat timer */
 	n.heartbeatTimer.Stop()
-	n.heartbeatTimer.Reset(time.Duration(n.config.HeartbeatTimeout))
+	n.heartbeatTimer.Reset(time.Duration(n.config.HeartbeatTimeout) * time.Millisecond)
 }
 
 func (n *Node) becomeLeader() {
 	/* Become the leader */
 	n.role = Leader
+	n.StopElectionTimer()
 	n.leaderDaemon()
 }
 
@@ -161,6 +162,7 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 					term past the leader's term.
 				*/
 				log.Println("Node ", n.state.id, " found term difference with peer ", peer.Id, " forcing new election")
+				n.state.currentTerm = response.Term
 				n.forceNewElection()
 			} else {
 				if state.nextIndex > 0 {
@@ -254,6 +256,9 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 	n.state.Logger.Append([]LogEntry{logEntry})
 	log.Println()
 	replicated := n.appendEntries()
+	if replicated {
+		n.role = n.role | AddingPeer
+	}
 	// go n.rpc.InstallSnapshotRPC(peer, snapshot)
 	n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: replicated}
 }
