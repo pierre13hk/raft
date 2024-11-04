@@ -11,7 +11,7 @@ import (
 )
 
 var nbCommands = 50
-var dropRate float32 = 0.95
+var dropRate float32 = 0.1
 
 func NewDropRPC(dropRate float32) raft.RaftRPC {
 	baseRpc := &rpc.RaftRpcImplem{}
@@ -20,8 +20,8 @@ func NewDropRPC(dropRate float32) raft.RaftRPC {
 
 func main() {
 	config := raft.NodeConfig{
-		ElectionTimeoutMin: 500,
-		ElectionTimeoutMax: 1500,
+		ElectionTimeoutMin: 200,
+		ElectionTimeoutMax: 400,
 		HeartbeatTimeout:   50,
 	}
 	node1 := raft.NewDebugNode(1, "localhost:9001", NewDropRPC(dropRate), config)
