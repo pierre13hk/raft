@@ -163,7 +163,6 @@ func (n *Node) appendEntriesToPeer(peer Peer, replicated chan bool) {
 				log.Println("Node ", n.state.id, " found term difference with peer ", peer.Id, " forcing new election")
 				n.forceNewElection()
 			} else {
-				// handle term difference later
 				if state.nextIndex > 0 {
 					state.nextIndex -= 1
 					log.Println("Node ", n.state.id, " decremented next index for peer ", peer.Id, " to ", state.nextIndex)
