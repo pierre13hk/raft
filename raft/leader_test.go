@@ -9,7 +9,7 @@ func TestInitialHeartBeat(t *testing.T) {
 	/*
 		Test that the leader sends a heartbeat to all peers when it becomes the leader.
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	node := testNode(t)
 	node.role = Leader
 	node.leaderReplicationState = make(map[uint64]FollowerReplicationState)
 	node.leaderReplicationState[2] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
@@ -20,7 +20,7 @@ func TestInitialHeartBeat(t *testing.T) {
 	if heartbeatRequest.LeaderCommit != 0 {
 		t.Fatalf("expected leader commit to be 0, got %d", heartbeatRequest.LeaderCommit)
 	}
-	follower := NewNode(2, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	follower := testNode(t)
 	response := follower.checkAppendEntriesRequest(heartbeatRequest)
 	if !response.Success {
 		t.Fatalf("expected success, got %v", response)
@@ -34,7 +34,7 @@ func TestLargestCommitedIndex(t *testing.T) {
 	replicationState[4] = FollowerReplicationState{nextIndex: 1, matchIndex: 3}
 	replicationState[5] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	node := testNode(t)
 	node.role = Leader
 	node.leaderReplicationState = replicationState
 
@@ -59,7 +59,7 @@ func TestAppendEntriesNewLog(t *testing.T) {
 	replicationState[1] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
 	replicationState[2] = FollowerReplicationState{nextIndex: 1, matchIndex: 0}
 
-	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	leader := testNode(t)
 	leader.state.Append([]LogEntry{
 		{Term: 1, Index: 1, Command: []byte("first log")},
 	})
@@ -95,7 +95,7 @@ func TestAppendEntriesToPeerLate(t *testing.T) {
 	replicationState[4] = FollowerReplicationState{nextIndex: 1, matchIndex: 3}
 	replicationState[5] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 
-	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	leader := testNode(t)
 	leader.state.Append([]LogEntry{
 		{Term: 1, Index: 1, Command: []byte("first log")},
 		{Term: 1, Index: 2, Command: []byte("second log")},
@@ -130,7 +130,7 @@ func TestAppendEntriesToPeerOnTime(t *testing.T) {
 	replicationState[4] = FollowerReplicationState{nextIndex: 1, matchIndex: 3}
 	replicationState[5] = FollowerReplicationState{nextIndex: 1, matchIndex: 4}
 
-	leader := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	leader := testNode(t)
 	leader.role = Leader
 	leader.leaderReplicationState = replicationState
 	leader.state.commitIndex = leader.largestCommittedIndex(&replicationState)
@@ -150,7 +150,7 @@ func TestCheckJoinClusterRequestAddingPeer(t *testing.T) {
 	/*
 		Test that we can't add a peer if we're already adding a peer.
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	node := testNode(t)
 	node.role = Follower | AddingPeer
 	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
 	canAddErr := node.checkCanAddPeer(request)
@@ -163,7 +163,7 @@ func TestCheckJoinClusterRequestNotLeader(t *testing.T) {
 	/*
 		Test that we can't add a peer if we're not the leader.
 	*/
-	node := NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), NodeConfig{})
+	node := testNode(t)
 	node.role = Follower
 	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
 	canAddErr := node.checkCanAddPeer(request)

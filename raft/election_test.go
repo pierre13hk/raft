@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"fmt"
 	"testing"
 	//"time"
 )
@@ -13,12 +14,12 @@ var (
 	}
 )
 
-func testNode() *Node {
-	return NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, "/tmp", defaultNodeConfig)
+func testNode(t *testing.T) *Node {
+	return NewNode(1, "localhost:1234", NewInMemoryRaftRPC(), &DebugStateMachine{}, t.TempDir(), defaultNodeConfig)
 }
 
 func TestCheckVoteRequestGranted(t *testing.T) {
-	node := testNode()
+	node := testNode(t)
 
 	b := Ballot{
 		Term:         0,
@@ -35,7 +36,7 @@ func TestCheckVoteRequestGranted(t *testing.T) {
 
 func TestCheckVoteRequestBallotLate(t *testing.T) {
 	// Test that we don't grant a vote if our term is greater
-	node := testNode()
+	node := testNode(t)
 	node.state.currentTerm = 2
 	b := Ballot{
 		Term:         1,
@@ -51,7 +52,7 @@ func TestCheckVoteRequestBallotLate(t *testing.T) {
 
 func TestCheckVoteRequestAlreadyVoted(t *testing.T) {
 	// Test that we don't grant a vote if we already voted
-	node := testNode()
+	node := testNode(t)
 	node.state.currentTerm = 1
 	node.state.votedFor = 3
 	b := Ballot{
@@ -70,13 +71,13 @@ func TestCheckVoteRequestLogTermLate(t *testing.T) {
 	// Test that we don't grant a vote if the candidate's log's term is lesser
 	var CURRENT_TERM uint64 = 3
 	var CANDINDATE_TERM uint64 = 2
-	node := testNode()
+	node := testNode(t)
 	node.state.currentTerm = CURRENT_TERM
 	node.state.votedFor = 0
 	entries := []LogEntry{
 		{
 			Term:    1,
-			Index:   1,
+			Index:   0,
 			Type:    RAFT_LOG,
 			Command: []byte("test"),
 		},
@@ -88,7 +89,8 @@ func TestCheckVoteRequestLogTermLate(t *testing.T) {
 		},
 	}
 	node.state.Logger.Append(entries)
-
+	lgs,_ := node.state.GetRange(0, 2)
+	fmt.Println(lgs)
 	b := Ballot{
 		Term:         CANDINDATE_TERM,
 		CandidateId:  2,
@@ -103,15 +105,15 @@ func TestCheckVoteRequestLogTermLate(t *testing.T) {
 
 func TestCheckVoteRequestLogIndexLate(t *testing.T) {
 	// Test that we don't grant a vote if the candidate's log's index is lesser
-	node := testNode()
+	node := testNode(t)
 	node.state.currentTerm = 2
 	node.state.votedFor = 0
 	entries := []LogEntry{
 		{
 			Term:    1,
-			Index:   1,
+			Index:   0,
 			Type:    RAFT_LOG,
-			Command: []byte("test"),
+			Command: []byte("init"),
 		},
 		{
 			Term:    2,
