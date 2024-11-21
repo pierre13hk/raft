@@ -155,7 +155,7 @@ func TestCheckJoinClusterRequestAddingPeer(t *testing.T) {
 	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
 	canAddErr := node.checkCanAddPeer(request)
 	if canAddErr == nil {
-		t.Fatalf("expected err, got")
+		t.Fatalf("expected an error but got nil")
 	}
 }
 
@@ -168,6 +168,6 @@ func TestCheckJoinClusterRequestNotLeader(t *testing.T) {
 	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
 	canAddErr := node.checkCanAddPeer(request)
 	if canAddErr == nil {
-		t.Fatalf("expected err, got")
+		t.Fatalf("expected an error but got nil")
 	}
 }
