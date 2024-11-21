@@ -8,7 +8,7 @@ func TestAppendEntriesSimple(t *testing.T) {
 	/*
 		A first election has been held and a leader is sending his first log
 	*/
-	node := testNode(t) 
+	node := testNode(t)
 	// The first data append entries request
 	// sent bn the leader to the followers
 	// The leader's term is 2 and he has not yet committed any data.
@@ -151,7 +151,7 @@ func TestAddPeerWrongLogType(t *testing.T) {
 		Test the addPeer method with a log entry that is not a cluster change
 	*/
 	node := testNode(t)
-	err := node.addPeer(LogEntry{Type: USER_LOG, Command: []byte("1,localhost,1234")})
+	err := node.addPeerFromLog(LogEntry{Type: USER_LOG, Command: []byte("1,localhost,1234")})
 	if err == nil {
 		t.Errorf("Expected error")
 	}
@@ -165,14 +165,14 @@ func TestAddPeerMissingInfo(t *testing.T) {
 		Test the addPeer method with a log entry that is not a cluster change
 	*/
 	node := testNode(t)
-	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,")})
+	err := node.addPeerFromLog(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,")})
 	if err == nil {
 		t.Errorf("Expected error")
 	}
 	if len(node.Peers) != 0 {
 		t.Errorf("Expected 0 peers")
 	}
-	node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,,")})
+	node.addPeerFromLog(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1,,")})
 	if len(node.Peers) != 0 {
 		t.Errorf("Expected 0 peers")
 	}
@@ -180,7 +180,7 @@ func TestAddPeerMissingInfo(t *testing.T) {
 
 func TestAddPeerMalformedID(t *testing.T) {
 	node := testNode(t)
-	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("abc,localhost,1234")})
+	err := node.addPeerFromLog(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("abc,localhost,1234")})
 	if err == nil {
 		t.Errorf("Expected error")
 	}
@@ -191,7 +191,7 @@ func TestAddPeerMalformedID(t *testing.T) {
 
 func TestAddPeerMalformedAddr(t *testing.T) {
 	node := testNode(t)
-	node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1:8000|8000")})
+	node.addPeerFromLog(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1:8000|8000")})
 	if len(node.Peers) != 0 {
 		t.Errorf("Expected 0 peers")
 	}
@@ -199,7 +199,7 @@ func TestAddPeerMalformedAddr(t *testing.T) {
 
 func TestAddPeer(t *testing.T) {
 	node := testNode(t)
-	err := node.addPeer(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")})
+	err := node.addPeerFromLog(LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")})
 	if err != nil {
 		t.Errorf("Error adding peer")
 	}
@@ -211,14 +211,14 @@ func TestAddPeer(t *testing.T) {
 func TestDoubleAdd(t *testing.T) {
 	node := testNode(t)
 	log := LogEntry{Type: CLUSTER_CHANGE_ADD, Command: []byte("1|127.0.0.1|1234")}
-	err := node.addPeer(log)
+	err := node.addPeerFromLog(log)
 	if err != nil {
 		t.Errorf("Error adding peer")
 	}
 	if len(node.Peers) != 1 {
 		t.Errorf("Expected 1 peer, was %d", len(node.Peers))
 	}
-	err = node.addPeer(log)
+	err = node.addPeerFromLog(log)
 	if err != nil {
 		t.Errorf("Didn't expect error")
 	}

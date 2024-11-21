@@ -1,9 +1,7 @@
 package raft
 
 import (
-	"fmt"
 	"testing"
-	//"time"
 )
 
 var (
@@ -89,8 +87,6 @@ func TestCheckVoteRequestLogTermLate(t *testing.T) {
 		},
 	}
 	node.state.Logger.Append(entries)
-	lgs,_ := node.state.GetRange(0, 2)
-	fmt.Println(lgs)
 	b := Ballot{
 		Term:         CANDINDATE_TERM,
 		CandidateId:  2,

@@ -79,7 +79,8 @@ type Node struct {
 	config       NodeConfig
 	StateMachine StateMachine
 	RaftRPC
-	Peers []Peer
+	rpcStarted bool
+	Peers      []Peer
 
 	electionTimer  *time.Timer
 	heartbeatTimer *time.Timer
@@ -124,6 +125,7 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		config:         config,
 		StateMachine:   &DebugStateMachine{},
 		RaftRPC:        rpcImplem,
+		rpcStarted:     false,
 		electionTimer:  time.NewTimer(time.Duration(rand.Intn(config.ElectionTimeoutMax)) * time.Millisecond),
 		heartbeatTimer: time.NewTimer(1000 * time.Second),
 		channels: NodeChannels{
@@ -141,19 +143,24 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		Mutex:              &sync.Mutex{},
 		clientRequestMutex: &sync.Mutex{},
 	}
-	node.RaftRPC.RegisterNode(&node)
-	node.RaftRPC.Start()
 	return &node
 }
 
 func (n *Node) Start() {
 	/* Start the node */
 	n.run = true
-	wg := sync.WaitGroup{}
+	n.StartRPCServer()
 	go n.nodeDaemon()
-	wg.Add(1)
-	wg.Wait()
-	log.Println("Node started")
+}
+
+func (n *Node) StartRPCServer() {
+	if n.rpcStarted {
+		return
+	}
+	log.Println("Starting RPC server", n.rpcStarted, n.Addr)
+	n.RaftRPC.RegisterNode(n)
+	n.RaftRPC.Start()
+	n.rpcStarted = true
 }
 
 func (n *Node) Stop() {
@@ -255,7 +262,7 @@ func (n *Node) commitEntries() {
 		case RAFT_LOG:
 			// do nothing
 		case CLUSTER_CHANGE_ADD:
-			n.addPeer(logEntry)
+			n.addPeerFromLog(logEntry)
 
 		}
 	}
@@ -286,7 +293,7 @@ func (n *Node) GetLeaderInfo() (uint64, string) {
 	return leader.Id, leader.Addr
 }
 
-func (n *Node) addPeer(logEntry LogEntry) error {
+func (n *Node) addPeerFromLog(logEntry LogEntry) error {
 	/* Add a peer */
 	if logEntry.Type != CLUSTER_CHANGE_ADD {
 		return errors.New("Wrong log type")
@@ -316,16 +323,22 @@ func (n *Node) addPeer(logEntry LogEntry) error {
 		Id:   id,
 		Addr: addr,
 	}
-	existing := n.getPeer(id)
+	n.addPeer(peer)
+	return nil
+}
+
+func (n *Node) addPeer(peer Peer) error {
+	/* Add a peer */
+	existing := n.getPeer(peer.Id)
 	if existing.Id != 0 {
-		log.Printf("Node %d: peer %d %s already exists\n", n.state.id, id, addr)
-		existing.Addr = addr
+		log.Printf("Node %d: peer %d %s already exists\n", n.state.id, peer.Id, peer.Addr)
+		existing.Addr = peer.Addr
 		return nil
 	}
 	n.Peers = append(n.Peers, peer)
-	log.Printf("Node %d added peer %d %s\n", n.state.id, id, addr)
+	log.Printf("Node %d added peer %d %s\n", n.state.id, peer.Id, peer.Addr)
 	if n.role == Leader {
-		n.leaderReplicationState[id] = FollowerReplicationState{
+		n.leaderReplicationState[peer.Id] = FollowerReplicationState{
 			nextIndex:  n.state.LastLogIndex() + 1,
 			matchIndex: 0,
 		}

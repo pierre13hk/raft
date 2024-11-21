@@ -48,6 +48,24 @@ message RPCJoinClusterResponse {
   string message = 2;
 }
 
+message RPCPeer {
+
+}
+
+message RPCInstallSnapshotRequest {
+  uint64 term = 1;
+  uint64 leaderId = 2;
+  uint64 lastIncludedIndex = 3;
+  uint64 lastIncludedTerm = 4;
+  repeated RPCPeer LastConfig = 5;
+  bytes data = 6;
+}
+
+message RPCInstallSnapshotResponse {
+  uint64 term = 1;
+  bool success = 2;
+}
+
 service RaftNode {
   rpc RequestVote(RPCBallot) returns (RPCBallotResponse) {}
   rpc AppendEntries(RPCAppendEntriesRequest) returns (RPCAppendEntriesResponse) {}

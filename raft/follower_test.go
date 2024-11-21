@@ -119,7 +119,7 @@ func TestCheckAppendEntriesPrevLogIndexTermDifferent(t *testing.T) {
 	}
 	resp := node.checkAppendEntriesRequest(req)
 	if resp.Success {
-		lg,_ := node.state.Get(2)
+		lg, _ := node.state.Get(2)
 		fmt.Println(lg)
 		t.Errorf("Expected entries to be refused")
 	}

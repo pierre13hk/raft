@@ -152,6 +152,10 @@ func (r *InMemoryRaftRPC) ClientWriteRPC(peer Peer, req ClientRequest) (ClientRe
 	return ClientRequestResponse{}, errors.New("Not implemented")
 }
 
+func (r *InMemoryRaftRPC) InstallSnapshotRPC(peer Peer, req InstallSnapshotRequest) (InstallSnapshotResponse, error) {
+	return InstallSnapshotResponse{}, errors.New("Not implemented")
+}
+
 /* Debug StateMachine */
 type DebugStateMachine struct {
 	/* A simple state machine that logs all commands and can be used for testing */

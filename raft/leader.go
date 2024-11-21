@@ -78,6 +78,9 @@ func (n *Node) appendEntries() bool {
 	if replicated_count > len(n.Peers)/2 {
 		// More than half of the peers have replicated the log entries
 		// If the last log is of our term, commit it and by extension all previous logs
+		if n.role&AddingPeer != 0 {
+			n.role = Leader
+		}
 		last_log_term := n.state.LastLogTerm()
 		if last_log_term == n.state.currentTerm {
 			n.commitEntries()
@@ -221,14 +224,28 @@ func (n *Node) write(request ClientRequest) {
 
 func (n *Node) checkCanAddPeer(request JoinClusterRequest) error {
 	/* Handle an add peer request */
+	if n.role != Leader {
+		log.Printf("Node %d: not the leader, is %v\n", n.state.id, n.role)
+		return errors.New("Node is not the leader")
+	}
 	if n.role&AddingPeer != 0 {
 		log.Printf("Node %d: already adding peer\n", n.state.id)
 		return errors.New("Node is already adding a peer")
 	}
-	if n.role != Leader {
-		return errors.New("Node is not the leader")
-	}
 	return nil
+}
+
+func (n *Node) createAddPeerLogEntry(request JoinClusterRequest) LogEntry {
+	/* Create a log entry to add a peer */
+	strId := fmt.Sprint(request.Id)
+	logCommand := formatRaftLogCommand(strId, request.Addr, request.Port)
+	logEntry := LogEntry{
+		Term:    n.state.currentTerm,
+		Index:   n.state.Logger.LastLogIndex() + 1,
+		Type:    CLUSTER_CHANGE_ADD,
+		Command: []byte(logCommand),
+	}
+	return logEntry
 }
 
 func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
@@ -238,25 +255,23 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 		return
 	}
 	log.Printf("Node %d: add peer request %d %s\n", n.state.id, request.Id, request.Addr)
-	strId := fmt.Sprint(request.Id)
-	logCommand := formatRaftLogCommand(strId, request.Addr, request.Port)
-	logEntry := LogEntry{
-		Term:    n.state.currentTerm,
-		Index:   n.state.Logger.LastLogIndex() + 1,
-		Type:    CLUSTER_CHANGE_ADD,
-		Command: []byte(logCommand),
+	peer := Peer{
+		Id:   request.Id,
+		Addr: fmt.Sprintf("%s:%s", request.Addr, request.Port),
 	}
-	if err := n.addPeer(logEntry); err != nil {
+	if err := n.addPeer(peer); err != nil {
 		log.Printf("Node %d: error adding peer %d %s\n", n.state.id, request.Id, request.Addr)
 		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
 		return
 	}
 
+	logEntry := n.createAddPeerLogEntry(request)
 	log.Printf("fml %x\n", n.leaderReplicationState)
 	n.state.Logger.Append([]LogEntry{logEntry})
 	log.Println()
 	replicated := n.appendEntries()
-	if replicated {
+	log.Printf("Node %d: add peer request %d %s replicated %t\n", n.state.id, request.Id, request.Addr, replicated)
+	if !replicated {
 		n.role = n.role | AddingPeer
 	}
 	// go n.rpc.InstallSnapshotRPC(peer, snapshot)

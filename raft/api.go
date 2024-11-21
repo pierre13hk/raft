@@ -60,6 +60,7 @@ func (n *Node) BootstrapCluster(addr string, port string, peersAddrs ...string) 
 		Addr: addr,
 		Port: port,
 	}
+	n.StartRPCServer()
 	for _, peer := range peersAddrs {
 		peer := Peer{Id: 0, Addr: peer}
 		joinResponse, err := n.JoinClusterRPC(peer, joinRequest)
