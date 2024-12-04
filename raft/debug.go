@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	//"log"
@@ -167,6 +168,11 @@ func (d *DebugStateMachine) Apply(command []byte) error {
 	return nil
 }
 
+func (d *DebugStateMachine) Read(command []byte) ([]byte, error) {
+	strLogs := strings.Join(d.Log, "\n")
+	return []byte(strLogs), nil
+}
+
 func (d *DebugStateMachine) Serialize() ([]byte, error) {
 	ser, err := json.Marshal(d.Log)
 	if err != nil {
@@ -190,8 +196,11 @@ type DebugNode struct {
 }
 
 func NewDebugNode(id uint64, addr string, rpc RaftRPC, config NodeConfig) *DebugNode {
+	sm := &DebugStateMachine{
+		Log: []string{},
+	}
 	return &DebugNode{
-		Node:  NewNode(id, addr, rpc, &DebugStateMachine{}, fmt.Sprintf("./tmp/%d", id), config),
+		Node:  NewNode(id, addr, rpc, sm, fmt.Sprintf("./tmp/%d", id), config),
 		Mutex: &sync.Mutex{},
 	}
 }
