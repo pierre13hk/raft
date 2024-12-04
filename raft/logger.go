@@ -95,8 +95,6 @@ type Logger interface {
 	CreateSnapshot(index uint64) error
 	// Install a snapshot
 	InstallSnapshot(snapshot []byte, lastIncludedIndex uint64) error
-	// Commit the log up to the given index
-	Commit(index uint64) error
 }
 
 type SnapshotInfo struct {
@@ -451,14 +449,6 @@ func (l *LoggerImplem) InstallSnapshot(snapshot []byte, lastIncludedIndex uint64
 	return nil
 }
 
-func (l *LoggerImplem) Commit(index uint64) error {
-	entry, err := l.Get(index)
-	if err != nil {
-		return err
-	}
-	err = l.Apply(entry.Command)
-	return err
-}
 
 func (l *LoggerImplem) saveConfig() error {
 	out, err := l.config.Serialize()
@@ -489,4 +479,9 @@ func (l *LoggerImplem) loadConfig() error {
 	}
 	err = json.Unmarshal(bytes, &l.config)
 	return err
+}
+
+func (l *LoggerImplem) StateMachineRead(command []byte) ([]byte, error) {
+	fmt.Println("StateMachineRead: *sm = ", l.StateMachine)
+	return l.Read(command)
 }
