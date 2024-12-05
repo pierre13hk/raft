@@ -449,7 +449,6 @@ func (l *LoggerImplem) InstallSnapshot(snapshot []byte, lastIncludedIndex uint64
 	return nil
 }
 
-
 func (l *LoggerImplem) saveConfig() error {
 	out, err := l.config.Serialize()
 	if err != nil {
