@@ -187,6 +187,7 @@ func (n *Node) RestartHeartbeatTimer() {
 func (n *Node) forceNewElection() {
 	/* Force a new election */
 	n.StopElectionTimer()
+	n.StopHeartbeatTimer()
 	n.electionTimer.Reset(0 * time.Millisecond)
 }
 
@@ -194,6 +195,15 @@ func (n *Node) StopElectionTimer() {
 	if !n.electionTimer.Stop() {
 		select {
 		case <-n.electionTimer.C:
+		default:
+		}
+	}
+}
+
+func (n *Node) StopHeartbeatTimer() {
+	if !n.heartbeatTimer.Stop() {
+		select {
+		case <-n.heartbeatTimer.C:
 		default:
 		}
 	}
@@ -208,7 +218,9 @@ func (n *Node) nodeDaemon() {
 			n.handleTimeout()
 		case <-n.heartbeatTimer.C:
 			// only the leader uses this timer
-			n.appendEntries()
+			if n.role == Leader {
+				n.appendEntries()
+			}
 		case clientRequest := <-n.channels.clientRequestChannel:
 			n.write(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
