@@ -67,6 +67,8 @@ type NodeChannels struct {
 	appendEntriesResponseChannel chan AppendEntriesResponse
 	addPeerChannel               chan JoinClusterRequest
 	JoinClusterResponseChannel   chan JoinClusterResponse
+	clientReadRequestChannel     chan ClientReadRequest
+	clientReadResponseChannel    chan ClientReadResponse
 }
 type ElectionState struct {
 	votesReceived int
@@ -139,6 +141,8 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 1),
 			addPeerChannel:               make(chan JoinClusterRequest, 1),
 			JoinClusterResponseChannel:   make(chan JoinClusterResponse, 1),
+			clientReadRequestChannel:     make(chan ClientReadRequest, 1),
+			clientReadResponseChannel:    make(chan ClientReadResponse, 1),
 		},
 		Mutex:              &sync.Mutex{},
 		clientRequestMutex: &sync.Mutex{},
@@ -219,6 +223,8 @@ func (n *Node) nodeDaemon() {
 		case JoinClusterRequest := <-n.channels.addPeerChannel:
 			// when a node receives a request to add a peer
 			n.handleJoinClusterRequest(JoinClusterRequest)
+		case clientReadRequest := <-n.channels.clientReadRequestChannel:
+			n.handleClientReadRequest(clientReadRequest)
 		}
 
 	}
@@ -249,7 +255,7 @@ func (n *Node) handleTimeout() {
 
 func (n *Node) commitEntries() {
 	/* Commit entries */
-	for i := n.state.lastApplied; i <= n.state.commitIndex; i++ {
+	for i := n.state.lastApplied + 1; i <= n.state.commitIndex; i++ {
 		logEntry, err := n.state.Get(i)
 		if err != nil {
 			log.Println("Error getting log entry")

@@ -63,15 +63,6 @@ func (c *raftNodeClient) JoinCluster(ctx context.Context, in *RPCJoinClusterRequ
 	return out, nil
 }
 
-func (c *raftNodeClient) InstallSnapshot(ctx context.Context, in *RPCInstallSnapshotRequest, opts ...grpc.CallOption) (*RPCInstallSnapshotResponse, error) {
-	out := new(RPCInstallSnapshotResponse)
-	err := c.cc.Invoke(ctx, "/RaftNode/InstallSnapshot", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // RaftNodeServer is the server API for RaftNode service.
 // All implementations must embed UnimplementedRaftNodeServer
 // for forward compatibility
@@ -79,7 +70,6 @@ type RaftNodeServer interface {
 	RequestVote(context.Context, *RPCBallot) (*RPCBallotResponse, error)
 	AppendEntries(context.Context, *RPCAppendEntriesRequest) (*RPCAppendEntriesResponse, error)
 	JoinCluster(context.Context, *RPCJoinClusterRequest) (*RPCJoinClusterResponse, error)
-	InstallSnapshot(context.Context, *RPCInstallSnapshotRequest) (*RPCInstallSnapshotResponse, error)
 	mustEmbedUnimplementedRaftNodeServer()
 }
 
@@ -95,9 +85,6 @@ func (UnimplementedRaftNodeServer) AppendEntries(context.Context, *RPCAppendEntr
 }
 func (UnimplementedRaftNodeServer) JoinCluster(context.Context, *RPCJoinClusterRequest) (*RPCJoinClusterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JoinCluster not implemented")
-}
-func (UnimplementedRaftNodeServer) InstallSnapshot(context.Context, *RPCInstallSnapshotRequest) (*RPCInstallSnapshotResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InstallSnapshot not implemented")
 }
 func (UnimplementedRaftNodeServer) mustEmbedUnimplementedRaftNodeServer() {}
 
@@ -166,24 +153,6 @@ func _RaftNode_JoinCluster_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RaftNode_InstallSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RPCInstallSnapshotRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RaftNodeServer).InstallSnapshot(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/RaftNode/InstallSnapshot",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RaftNodeServer).InstallSnapshot(ctx, req.(*RPCInstallSnapshotRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // RaftNode_ServiceDesc is the grpc.ServiceDesc for RaftNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -203,10 +172,6 @@ var RaftNode_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "JoinCluster",
 			Handler:    _RaftNode_JoinCluster_Handler,
 		},
-		{
-			MethodName: "InstallSnapshot",
-			Handler:    _RaftNode_InstallSnapshot_Handler,
-		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "service.proto",
@@ -218,6 +183,7 @@ var RaftNode_ServiceDesc = grpc.ServiceDesc{
 type RaftClientServiceClient interface {
 	AddClient(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterInfo, error)
 	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*WriteResponse, error)
+	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
 }
 
 type raftClientServiceClient struct {
@@ -246,12 +212,22 @@ func (c *raftClientServiceClient) Write(ctx context.Context, in *WriteRequest, o
 	return out, nil
 }
 
+func (c *raftClientServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error) {
+	out := new(ReadResponse)
+	err := c.cc.Invoke(ctx, "/RaftClientService/Read", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RaftClientServiceServer is the server API for RaftClientService service.
 // All implementations must embed UnimplementedRaftClientServiceServer
 // for forward compatibility
 type RaftClientServiceServer interface {
 	AddClient(context.Context, *emptypb.Empty) (*ClusterInfo, error)
 	Write(context.Context, *WriteRequest) (*WriteResponse, error)
+	Read(context.Context, *ReadRequest) (*ReadResponse, error)
 	mustEmbedUnimplementedRaftClientServiceServer()
 }
 
@@ -264,6 +240,9 @@ func (UnimplementedRaftClientServiceServer) AddClient(context.Context, *emptypb.
 }
 func (UnimplementedRaftClientServiceServer) Write(context.Context, *WriteRequest) (*WriteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Write not implemented")
+}
+func (UnimplementedRaftClientServiceServer) Read(context.Context, *ReadRequest) (*ReadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Read not implemented")
 }
 func (UnimplementedRaftClientServiceServer) mustEmbedUnimplementedRaftClientServiceServer() {}
 
@@ -314,6 +293,24 @@ func _RaftClientService_Write_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RaftClientService_Read_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RaftClientServiceServer).Read(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/RaftClientService/Read",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RaftClientServiceServer).Read(ctx, req.(*ReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RaftClientService_ServiceDesc is the grpc.ServiceDesc for RaftClientService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -328,6 +325,10 @@ var RaftClientService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Write",
 			Handler:    _RaftClientService_Write_Handler,
+		},
+		{
+			MethodName: "Read",
+			Handler:    _RaftClientService_Read_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

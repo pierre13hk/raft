@@ -25,6 +25,8 @@ type RaftRPC interface {
 	// --- Client RPCs ---
 	// Add a client to the cluster
 	AddClientRPC() (*ClusterInfo, error)
-	// Hanlde a client write request
+	// Handle a client write request
 	ClientWriteRPC(peer Peer, req ClientRequest) (ClientRequestResponse, error)
+	// Handle a client read request
+	ClientReadRPC(peer Peer, req ClientRequest) (ClientRequestResponse, error)
 }

@@ -29,7 +29,9 @@ func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntries
 		log.Printf("AppendEntries: Log doesn't match log at index term: %d req prevlogterm %d\n", lg.Term, req.PrevLogTerm)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
-
+	if n.role != Follower {
+		n.loseElection()
+	}
 	n.role = Follower
 	n.state.votedFor = req.LeaderId
 	if len(req.Entries) == 0 {

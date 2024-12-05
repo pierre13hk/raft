@@ -72,6 +72,13 @@ func (d DropRPC) ClientWriteRPC(peer raft.Peer, req raft.ClientRequest) (raft.Cl
 	return d.raftRpcImpl.ClientWriteRPC(peer, req)
 }
 
+func (d DropRPC) ClientReadRPC(peer raft.Peer, req raft.ClientRequest) (raft.ClientRequestResponse, error) {
+	if rand.Float32() < d.dropRate {
+		return raft.ClientRequestResponse{}, ErrDropRPC
+	}
+	return d.raftRpcImpl.ClientReadRPC(peer, req)
+}
+
 func (d DropRPC) InstallSnapshotRPC(peer raft.Peer, req raft.InstallSnapshotRequest) (raft.InstallSnapshotResponse, error) {
 	if rand.Float32() < d.dropRate {
 		return raft.InstallSnapshotResponse{}, ErrDropRPC

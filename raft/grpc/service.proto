@@ -86,7 +86,17 @@ message WriteResponse {
   bool success = 1;
 }
 
+message ReadRequest {
+  string command = 1;
+}
+
+message ReadResponse {
+  string response = 1;
+  bool   success = 2;
+  string error = 3;
+}
 service RaftClientService {
   rpc AddClient(google.protobuf.Empty) returns (ClusterInfo) {}
   rpc Write(WriteRequest) returns (WriteResponse) {}
+  rpc Read(ReadRequest) returns (ReadResponse) {}
 }

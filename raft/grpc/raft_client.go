@@ -72,3 +72,19 @@ func (client *RaftGrpcClient) Write(request string) WriteResponse {
 	}
 	return WriteResponse{Success: grpcResponse.Success}
 }
+
+func (client *RaftGrpcClient) Read(command string) ReadResponse {
+	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
+	defer cancel()
+	grpcRequest := &ReadRequest{Command: command}
+	grpcResponse, err := client.grpcClient.Read(ctx, grpcRequest)
+	if err != nil {
+		log.Println("Client: failed to read logs: ", err, " leader addr ", client.leaderAddr)
+		return ReadResponse{Success: false, Error: err.Error()}
+	}
+	return ReadResponse{
+		Response: grpcResponse.Response,
+		Success:  grpcResponse.Success,
+		Error: grpcResponse.Error,
+	}
+}

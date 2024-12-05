@@ -114,6 +114,10 @@ func (server *RaftRpcImplem) ClientWriteRPC(peer rft.Peer, req rft.ClientRequest
 	return rft.ClientRequestResponse{}, nil
 }
 
+func (server *RaftRpcImplem) ClientReadRPC(peer rft.Peer, req rft.ClientRequest) (rft.ClientRequestResponse, error) {
+	return rft.ClientRequestResponse{}, nil
+}
+
 func (server *RaftRpcImplem) ForwardToLeaderRPC(peer rft.Peer, req rft.ClientRequest) (rft.ClientRequestResponse, error) {
 	return rft.ClientRequestResponse{}, nil
 }
@@ -218,6 +222,20 @@ func (server *RaftRpcImplem) Write(ctx context.Context, request *WriteRequest) (
 	var raftResponse rft.ClientRequestResponse = server.node.RecvClientRequest(raftRequest)
 	response := &WriteResponse{
 		Success: raftResponse.Success,
+	}
+	return response, nil
+}
+
+func (server *RaftRpcImplem) Read(ctx context.Context, request *ReadRequest) (*ReadResponse, error) {
+	var command string = request.Command
+	var raftRequest rft.ClientReadRequest = rft.ClientReadRequest{
+		Command: []byte(command),
+	}
+	var raftResponse rft.ClientReadResponse = server.node.RecvClientReadRequest(raftRequest)
+	response := &ReadResponse{
+		Response: string(raftResponse.Response),
+		Success: raftResponse.Success,
+		Error: raftResponse.Error,
 	}
 	return response, nil
 }

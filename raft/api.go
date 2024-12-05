@@ -77,3 +77,56 @@ func (n *Node) BootstrapCluster(addr string, port string, peersAddrs ...string) 
 	}
 	return false
 }
+
+type ClientReadRequest struct {
+	Command []byte
+}
+
+type ClientReadResponse struct {
+	Response []byte
+	Success  bool
+	Error    string
+}
+
+func (n *Node) handleClientReadRequest(request ClientReadRequest) {
+	if n.role != Leader {
+		response := ClientReadResponse{
+			Response: nil,
+			Success:  false,
+			Error:    "Node is not the leader",
+		}
+		n.channels.clientReadResponseChannel <- response
+		return
+	}
+	replicated := n.appendEntries()
+	if !replicated {
+		response := ClientReadResponse{
+			Response: nil,
+			Success:  false,
+			Error:    "Failed to replicate log",
+		}
+		n.channels.clientReadResponseChannel <- response
+		return
+	}
+	// The state machine will only read from commited entries
+	readBytes, err := n.StateMachine.Read(request.Command)
+	if err != nil {
+		response := ClientReadResponse{
+			Response: nil,
+			Success:  false,
+			Error:    err.Error(),
+		}
+		n.channels.clientReadResponseChannel <- response
+	}
+	response := ClientReadResponse{
+		Response: readBytes,
+		Success:  true,
+		Error:    "",
+	}
+	n.channels.clientReadResponseChannel <- response
+}
+
+func (n *Node) RecvClientReadRequest(request ClientReadRequest) ClientReadResponse {
+	n.channels.clientReadRequestChannel <- request
+	return <-n.channels.clientReadResponseChannel
+}
