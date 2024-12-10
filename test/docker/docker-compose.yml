@@ -10,6 +10,9 @@ services:
       - PORT=9001
       - PEERS=2|node2:9002,3|node3:9003
       - DROP_RATE=0.1
+      - PARTITION=true
+      - PARTITION_INTERVAL_MS=500
+      - PARTITION_OUTAGE_MS=200
   node2:
     build: .
     ports:
@@ -21,6 +24,9 @@ services:
       - PORT=9002
       - PEERS=1|node1:9001,3|node3:9003
       - DROP_RATE=0.2
+      - PARTITION=true
+      - PARTITION_INTERVAL_MS=500
+      - PARTITION_OUTAGE_MS=200
   node3:
     build: .
     ports:
@@ -32,10 +38,13 @@ services:
       - PORT=9003
       - PEERS=1|node1:9001,2|node2:9002
       - DROP_RATE=0.1
+      - PARTITION=true
+      - PARTITION_INTERVAL_MS=500
+      - PARTITION_OUTAGE_MS=200
   client:
     build: .
     environment:
       - PEERS=1|node1:9001,2|node2:9002,3|node3:9003
       - CLIENT=true
-      - REQUESTS=1000
-      - WAIT_BETWEEN_REQUEST_MS=100
+      - REQUESTS=100
+      - WAIT_BETWEEN_REQUEST_MS=200

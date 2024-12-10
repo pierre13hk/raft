@@ -40,9 +40,35 @@ func client(peers []raft.Peer) {
 	}
 }
 
-func dropRPC(dropRate float32) raft.RaftRPC {
-	baseRpc := &rpc.RaftRpcImplem{}
-	return drop.NewDropRPC(dropRate, baseRpc)
+func dropRPC(dropRate float32, rpc raft.RaftRPC) raft.RaftRPC {
+	return drop.NewDropRPC(dropRate, rpc)
+}
+
+func partitionRPC(intervalMs, outageMs int32, rpc raft.RaftRPC) raft.RaftRPC {
+	return drop.NewPartitionRPC(intervalMs, outageMs, rpc)
+}
+
+func getRPC() raft.RaftRPC {
+	var rpc raft.RaftRPC = &rpc.RaftRpcImplem{}
+	usePartition := os.Getenv("PARTITION") == "true"
+	if usePartition {
+		intervalMs, _ := strconv.Atoi(os.Getenv("PARTITION_INTERVAL_MS"))
+		outageMs, _ := strconv.Atoi(os.Getenv("PARTITION_OUTAGE_MS"))
+		rpc = partitionRPC(int32(intervalMs), int32(outageMs), rpc)
+	}
+
+	useDrop := os.Getenv("DROP_RATE") != ""
+	if useDrop {
+		dropRateStr := os.Getenv("DROP_RATE")
+		var dropRate float32 = 0.0
+		if len(dropRateStr) != 0 {
+			dropRate64, _ := strconv.ParseFloat(dropRateStr, 32)
+			dropRate = float32(dropRate64)
+		}
+		rpc = dropRPC(dropRate, rpc)
+		fmt.Println("Using drop rate", dropRate)
+	}
+	return rpc
 }
 
 func main() {
@@ -64,34 +90,28 @@ func main() {
 		client(peers)
 		return
 	} else {
-		dropRateStr := os.Getenv("DROP_RATE")
-		dropRate := float32(0)
-		if len(dropRateStr) == 0 {
-			dropRate = 0
-		} else {
-			dropRate64, _ := strconv.ParseFloat(dropRateStr, 32)
-			dropRate = float32(dropRate64)
-			rpc := dropRPC(dropRate)
-			sm := raft.DebugStateMachine{}
-			conf := raft.NodeConfig{
-				ElectionTimeoutMin: 600,
-				ElectionTimeoutMax: 1000,
-				HeartbeatTimeout:   400,
-			}
-			node := raft.NewNode(
-				uint64(id),
-				addr,
-				rpc,
-				&sm,
-				"./app/conf",
-				conf,
-			)
-			node.Peers = peers
-			node.Start()
-			wg := sync.WaitGroup{}
-			wg.Add(1)
-			wg.Wait()
+
+		rpc := getRPC()
+		sm := raft.DebugStateMachine{}
+		conf := raft.NodeConfig{
+			ElectionTimeoutMin: 600,
+			ElectionTimeoutMax: 1000,
+			HeartbeatTimeout:   400,
 		}
+		node := raft.NewNode(
+			uint64(id),
+			addr,
+			rpc,
+			&sm,
+			"/app/conf",
+			conf,
+		)
+		node.Peers = peers
+		node.Start()
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		wg.Wait()
+
 	}
 
 }
