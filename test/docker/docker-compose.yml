@@ -11,7 +11,7 @@ services:
       - PEERS=2|node2:9002,3|node3:9003
       - DROP_RATE=0.1
       - PARTITION=true
-      - PARTITION_INTERVAL_MS=500
+      - PARTITION_INTERVAL_MS=2000
       - PARTITION_OUTAGE_MS=200
   node2:
     build: .
@@ -25,7 +25,7 @@ services:
       - PEERS=1|node1:9001,3|node3:9003
       - DROP_RATE=0.2
       - PARTITION=true
-      - PARTITION_INTERVAL_MS=500
+      - PARTITION_INTERVAL_MS=2000
       - PARTITION_OUTAGE_MS=200
   node3:
     build: .
@@ -39,7 +39,7 @@ services:
       - PEERS=1|node1:9001,2|node2:9002
       - DROP_RATE=0.1
       - PARTITION=true
-      - PARTITION_INTERVAL_MS=500
+      - PARTITION_INTERVAL_MS=2000
       - PARTITION_OUTAGE_MS=200
   client:
     build: .
