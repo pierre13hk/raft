@@ -19,22 +19,15 @@ func client(peers []raft.Peer) {
 	for i, p := range peers {
 		clusterAddresses[i] = p.Addr
 	}
-	client := rpc.NewRaftGrpcClient()
-	connectErr := client.ConnectToCluster(clusterAddresses)
-	if connectErr != nil {
-		fmt.Println("Failed to connect to cluster")
-	}
+	var clientStub raft.RaftClientStub = rpc.NewRaftGrpcClient()
+	client := raft.NewRaftClient(clientStub, peers...)
 
 	requests, _ := strconv.Atoi(os.Getenv("REQUESTS"))
 	sleepTime, _ := strconv.Atoi(os.Getenv("WAIT_BETWEEN_REQUEST_MS"))
 	for i := 0; i < requests; i++ {
-		response := client.Write(fmt.Sprintf("command %d", i))
-		if !response.Success {
+		response, err := client.Write(fmt.Sprintf("command %d", i))
+		if err != nil || !response.Success {
 			fmt.Println("Failed to write command, retrying to connect to cluster")
-			connectErr = client.ConnectToCluster(clusterAddresses)
-			if connectErr != nil {
-				fmt.Println("Failed to connect to cluster")
-			}
 		}
 		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 	}

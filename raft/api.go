@@ -5,12 +5,14 @@ import "log"
 type ClusterInfo struct {
 	LeaderId      uint64
 	LeaderAddress string
+	Peers         []Peer
 }
 
 func (n *Node) HandleClientHello() ClusterInfo {
 	return ClusterInfo{
 		LeaderId:      n.state.votedFor,
 		LeaderAddress: n.getPeer(n.state.votedFor).Addr,
+		Peers:         n.Peers,
 	}
 }
 
