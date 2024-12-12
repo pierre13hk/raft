@@ -36,46 +36,45 @@ func NewPartitionRPC(intervalMs, outageMs int32, rpc raft.RaftRPC) *PartitionRPC
 
 func (d *PartitionRPC) scheduleNextOutage() {
 	timeToNextOutage := rand.Int31() % d.intervalPeriodMs
-	fmt.Println("PartitionRPC: Next outage in", timeToNextOutage)
 	d.timer.Reset(time.Duration(timeToNextOutage) * time.Millisecond)
 }
 
 func (d *PartitionRPC) scheduleNextTransmission() {
 	timeToNextTransmission := rand.Int31() % d.outageMs
-	fmt.Println("PartitionRPC: Next transmission in", timeToNextTransmission)
 	d.timer.Reset(time.Duration(timeToNextTransmission) * time.Millisecond)
 }
 
 func (d *PartitionRPC) timerHandler() {
 	for d.running {
-		fmt.Println("PartitionRPC: Timer Handler")
 		<-d.timer.C
 		if d.transmitting {
 			d.transmitting = false
-			fmt.Println("PartitionRPC: Partitioning")
+			d.raftRpcImpl.Stop()
 			d.scheduleNextTransmission()
 		} else {
 			d.transmitting = true
-			fmt.Println("PartitionRPC: Transmitting")
+			d.raftRpcImpl.Start()
 			d.scheduleNextOutage()
+
 		}
 	}
-	fmt.Println("PartitionRPC: Timer Handler Stopped")
 }
 
 func (d *PartitionRPC) RegisterNode(node *raft.Node) {
-	fmt.Println("PartitionRPC RegisterNode")
 	d.raftRpcImpl.RegisterNode(node)
 	fmt.Println("PartitionRPC Registered Node")
 }
 
 func (d *PartitionRPC) Start() {
 	d.running = true
-	fmt.Println("PartitionRPC starting")
 	d.scheduleNextOutage()
-	fmt.Println("PartitionRPC started")
 	go d.timerHandler()
 	d.raftRpcImpl.Start()
+}
+
+func (d *PartitionRPC) Stop() {
+	d.running = false
+	d.raftRpcImpl.Stop()
 }
 
 func (d *PartitionRPC) RequestVoteRPC(peer raft.Peer, ballot raft.Ballot) (raft.BallotResponse, error) {
@@ -89,7 +88,6 @@ func (d *PartitionRPC) AppendEntriesRPC(peer raft.Peer, req raft.AppendEntriesRe
 	if !d.transmitting {
 		return raft.AppendEntriesResponse{}, ErrPartitionRPC
 	}
-	fmt.Println("PartitionRPC AppendEntriesRPC", d.transmitting)
 	return d.raftRpcImpl.AppendEntriesRPC(peer, req)
 }
 

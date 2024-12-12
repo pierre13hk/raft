@@ -31,6 +31,10 @@ func (d *DropRPC) Start() {
 	d.raftRpcImpl.Start()
 }
 
+func (d *DropRPC) Stop() {
+	d.raftRpcImpl.Stop()
+}
+
 func (d *DropRPC) RequestVoteRPC(peer raft.Peer, ballot raft.Ballot) (raft.BallotResponse, error) {
 	if rand.Float32() < d.dropRate {
 		fmt.Println("Dropping RequestVoteRPC")

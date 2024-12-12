@@ -12,6 +12,8 @@ type RaftRPC interface {
 	RegisterNode(node *Node)
 	// Start the RPC server
 	Start()
+	// Stop the RPC server
+	Stop()
 	// Send a request to a peer to vote for us
 	RequestVoteRPC(peer Peer, ballot Ballot) (BallotResponse, error)
 	// Ask a peer to append entries to their log

@@ -15,7 +15,8 @@ import (
 type RaftRpcImplem struct {
 	UnimplementedRaftNodeServer
 	UnimplementedRaftClientServiceServer
-	node *rft.Node
+	node   *rft.Node
+	server *grpc.Server
 }
 
 func (server *RaftRpcImplem) RegisterNode(node *rft.Node) {
@@ -45,7 +46,15 @@ func (server *RaftRpcImplem) Start() {
 	RegisterRaftNodeServer(grpcServer, server)
 	RegisterRaftClientServiceServer(grpcServer, server)
 	go grpcServer.Serve(lis)
+	server.server = grpcServer
 	log.Printf("RPC server started\n")
+}
+
+func (server *RaftRpcImplem) Stop() {
+	if server.node == nil {
+		panic("Node not registered")
+	}
+	server.server.Stop()
 }
 
 // raft RPC interface implementations, really just a wrapper for the grpc client
@@ -234,8 +243,8 @@ func (server *RaftRpcImplem) Read(ctx context.Context, request *ReadRequest) (*R
 	var raftResponse rft.ClientReadResponse = server.node.RecvClientReadRequest(raftRequest)
 	response := &ReadResponse{
 		Response: string(raftResponse.Response),
-		Success: raftResponse.Success,
-		Error: raftResponse.Error,
+		Success:  raftResponse.Success,
+		Error:    raftResponse.Error,
 	}
 	return response, nil
 }
