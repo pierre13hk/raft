@@ -36,7 +36,11 @@ func runNodeAfterClient(peers []raft.Peer) {
 	for i, p := range peers {
 		peerAddrs[i] = p.Addr
 	}
-	node.BootstrapCluster("0.0.0.0", "9004", peerAddrs...)
+	joined := node.BootstrapCluster("client", "9004", peerAddrs...)
+	for !joined {
+		joined = node.BootstrapCluster("client", "9004", peerAddrs...)
+		time.Sleep(500 * time.Millisecond)
+	}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()
