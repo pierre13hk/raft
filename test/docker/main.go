@@ -13,6 +13,36 @@ import (
 	drop "raft.com/simulate/rpc"
 )
 
+func runNodeAfterClient(peers []raft.Peer) {
+	fmt.Println("Running node after client")
+	rpc := getRPC()
+	sm := raft.DebugStateMachine{}
+	conf := raft.NodeConfig{
+		ElectionTimeoutMin: 600,
+		ElectionTimeoutMax: 1000,
+		HeartbeatTimeout:   400,
+	}
+	addr := fmt.Sprintf("0.0.0.0:%d", 9004)
+	node := raft.NewNode(
+		uint64(4),
+		addr,
+		rpc,
+		&sm,
+		"/app/conf",
+		conf,
+	)
+	node.Peers = peers
+	peerAddrs := make([]string, len(peers))
+	for i, p := range peers {
+		peerAddrs[i] = p.Addr
+	}
+	node.BootstrapCluster("0.0.0.0", "9004", peerAddrs...)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	wg.Wait()
+
+}
+
 func client(peers []raft.Peer) {
 	time.Sleep(3 * time.Second)
 	clusterAddresses := make([]string, len(peers))
@@ -28,9 +58,12 @@ func client(peers []raft.Peer) {
 		response, err := client.Write(fmt.Sprintf("command %d", i))
 		if err != nil || !response.Success {
 			fmt.Println("Failed to write command, retrying to connect to cluster")
+		} else {
+			fmt.Println("Successfully wrote command")
 		}
 		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 	}
+	runNodeAfterClient(peers)
 }
 
 func dropRPC(dropRate float32, rpc raft.RaftRPC) raft.RaftRPC {
