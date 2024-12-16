@@ -312,10 +312,6 @@ func TestCreateSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected entries to be appended")
 	}
-	lastCommited := 3
-	for i := 1; i <= lastCommited; i++ {
-		err = logger.Commit(uint64(i))
-	}
 	err = logger.CreateSnapshot(3)
 	if err != nil {
 		t.Fatalf("thought snapshot creation would work")
