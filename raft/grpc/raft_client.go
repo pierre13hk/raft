@@ -31,21 +31,21 @@ func (client *RaftGrpcClient) Init() error {
 	return nil
 }
 
-func (client *RaftGrpcClient) AddClient(peer raft.Peer) error {
+func (client *RaftGrpcClient) AddClient(peer raft.Peer) (raft.ClusterInfo, error) {
 	connection, err := grpc.NewClient(peer.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	client.grpcClient = NewRaftClientServiceClient(connection)	
+	client.grpcClient = NewRaftClientServiceClient(connection)
 	if err != nil {
-		return err
+		return raft.ClusterInfo{}, err
 	}
 	tmpClient := NewRaftClientServiceClient(connection)
 	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
 	defer cancel()
-	_, err = tmpClient.AddClient(ctx, &emptypb.Empty{})
+	resp, err := tmpClient.AddClient(ctx, &emptypb.Empty{})
 	if err != nil {
 		log.Println("Client: failed to get cluster information: ", err)
-		return err
+		return raft.ClusterInfo{}, err
 	}
-	return nil
+	return raft.ClusterInfo{IsLeader: resp.IsLeader}, nil
 }
 
 func (client *RaftGrpcClient) Write(peer raft.Peer, request raft.ClientRequest) (raft.ClientRequestResponse, error) {
@@ -54,11 +54,11 @@ func (client *RaftGrpcClient) Write(peer raft.Peer, request raft.ClientRequest) 
 	grpcRequest := &WriteRequest{
 		Command: string(request.Command),
 	}
-	_, err := client.grpcClient.Write(ctx, grpcRequest)
+	response, err := client.grpcClient.Write(ctx, grpcRequest)
 	if err != nil {
 		return raft.ClientRequestResponse{Success: false}, err
 	}
-	return raft.ClientRequestResponse{Success: true}, nil
+	return raft.ClientRequestResponse{Success: response.Success}, nil
 }
 
 func (client *RaftGrpcClient) Read(peer raft.Peer, request raft.ClientReadRequest) (raft.ClientReadResponse, error) {
@@ -73,15 +73,7 @@ func (client *RaftGrpcClient) Read(peer raft.Peer, request raft.ClientReadReques
 	return raft.ClientReadResponse{
 		Response: []byte(grpcResponse.Response),
 		Success:  grpcResponse.Success,
-		Error: grpcResponse.Error,
+		Error:    grpcResponse.Error,
 	}, nil
 }
 
-func (client *RaftGrpcClient) setClient() error {
-	connection, err := grpc.NewClient(client.leaderAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
-	}
-	client.grpcClient = NewRaftClientServiceClient(connection)
-	return err
-}

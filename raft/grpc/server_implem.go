@@ -213,15 +213,8 @@ func (server *RaftRpcImplem) JoinCluster(ctx context.Context, request *RPCJoinCl
 // gRPC raft client service implementation
 
 func (server *RaftRpcImplem) AddClient(ctx context.Context, e *emptypb.Empty) (*ClusterInfo, error) {
-	leaderId, leaderAddr := server.node.GetLeaderInfo()
-	if leaderId == 0 {
-		return nil, nil
-	}
-	clusterInfo := &ClusterInfo{
-		LeaderId:   leaderId,
-		LeaderAddr: leaderAddr,
-	}
-	return clusterInfo, nil
+	info := server.node.HandleClientHello()
+	return &ClusterInfo{IsLeader: info.IsLeader}, nil
 }
 func (server *RaftRpcImplem) Write(ctx context.Context, request *WriteRequest) (*WriteResponse, error) {
 	var command string = request.Command

@@ -57,8 +57,8 @@ type NodeConfig struct {
 }
 
 type NodeChannels struct {
-	clientRequestChannel         chan ClientRequest
-	clientResponseChannel        chan ClientRequestResponse
+	clientWriteRequestChannel    chan ClientRequest
+	clientWriteResponseChannel   chan ClientRequestResponse
 	electionChannel              chan BallotResponse
 	requestVoteChannel           chan Ballot
 	requestVoteResponseChannel   chan BallotResponse
@@ -131,8 +131,8 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		electionTimer:  time.NewTimer(time.Duration(rand.Intn(config.ElectionTimeoutMax)) * time.Millisecond),
 		heartbeatTimer: time.NewTimer(1000 * time.Second),
 		channels: NodeChannels{
-			clientRequestChannel:         make(chan ClientRequest, 1),
-			clientResponseChannel:        make(chan ClientRequestResponse, 1),
+			clientWriteRequestChannel:    make(chan ClientRequest, 1),
+			clientWriteResponseChannel:   make(chan ClientRequestResponse, 1),
 			electionChannel:              make(chan BallotResponse, 100),
 			requestVoteChannel:           make(chan Ballot, 1),
 			requestVoteResponseChannel:   make(chan BallotResponse, 1),
@@ -221,7 +221,7 @@ func (n *Node) nodeDaemon() {
 			if n.role == Leader {
 				n.appendEntries()
 			}
-		case clientRequest := <-n.channels.clientRequestChannel:
+		case clientRequest := <-n.channels.clientWriteRequestChannel:
 			n.write(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
 			// when any node receives a vote request

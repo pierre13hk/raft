@@ -219,7 +219,7 @@ func (n *Node) write(request ClientRequest) {
 
 	n.state.Logger.Append([]LogEntry{logEntry})
 	replicated := n.appendEntries()
-	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
+	n.channels.clientWriteResponseChannel <- ClientRequestResponse{Success: replicated}
 }
 
 func (n *Node) checkCanAddPeer(request JoinClusterRequest) error {

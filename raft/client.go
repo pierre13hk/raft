@@ -13,7 +13,7 @@ type RaftGrpcClient struct {
 
 type RaftClientStub interface {
 	Init() error
-	AddClient(peer Peer) error
+	AddClient(peer Peer) (ClusterInfo, error)
 	Write(peer Peer, request ClientRequest) (ClientRequestResponse, error)
 	Read(peer Peer, request ClientReadRequest) (ClientReadResponse, error)
 }
@@ -41,14 +41,14 @@ func (client *RaftClient) Init() error {
 
 func (client *RaftClient) FindLeader() error {
 	if client.leader != (Peer{}) {
-		if client.stub.AddClient(client.leader) == nil {
-			// our leader is still the leader
+		clusterInfo, err := client.stub.AddClient(client.leader)
+		if err != nil && clusterInfo.IsLeader {
 			return nil
 		}
 	}
 	for _, peer := range client.peers {
-		err := client.stub.AddClient(peer)
-		if err != nil {
+		info, err := client.stub.AddClient(peer)
+		if err != nil || !info.IsLeader {
 			continue
 		}
 		client.leader = peer

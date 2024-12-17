@@ -74,8 +74,7 @@ service RaftNode {
 
 // Api messages and service for handling client requests
 message ClusterInfo {
-  uint64 leaderId = 1;
-  string leaderAddr = 2;
+  bool isLeader = 1;
 }
 
 message WriteRequest {

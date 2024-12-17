@@ -3,16 +3,12 @@ package raft
 import "log"
 
 type ClusterInfo struct {
-	LeaderId      uint64
-	LeaderAddress string
-	Peers         []Peer
+	IsLeader bool
 }
 
 func (n *Node) HandleClientHello() ClusterInfo {
 	return ClusterInfo{
-		LeaderId:      n.state.votedFor,
-		LeaderAddress: n.getPeer(n.state.votedFor).Addr,
-		Peers:         n.Peers,
+		IsLeader: n.role == Leader,
 	}
 }
 
@@ -34,15 +30,14 @@ func (n *Node) RecvClientRequest(request ClientRequest) ClientRequestResponse {
 		return ClientRequestResponse{Success: false}
 	}
 
-	n.channels.clientRequestChannel <- request
-	response := <-n.channels.clientResponseChannel
+	n.channels.clientWriteRequestChannel <- request
+	response := <-n.channels.clientWriteResponseChannel
 	if !response.Success {
 		log.Println("RecvClientRequest: Node ", n.state.id, " failed to handle client request")
 	} else {
 		log.Println("RecvClientRequest: Node ", n.state.id, " handled client request")
 	}
 	return ClientRequestResponse{Success: response.Success}
-
 }
 
 type JoinClusterRequest struct {
