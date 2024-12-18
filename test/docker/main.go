@@ -20,7 +20,7 @@ func runNodeAfterClient(peers []raft.Peer) {
 	conf := raft.NodeConfig{
 		ElectionTimeoutMin: 600,
 		ElectionTimeoutMax: 1000,
-		HeartbeatTimeout:   400,
+		HeartbeatTimeout:   100,
 	}
 	addr := fmt.Sprintf("0.0.0.0:%d", 9004)
 	node := raft.NewNode(
@@ -62,9 +62,8 @@ func client(peers []raft.Peer) {
 		response, err := client.Write(fmt.Sprintf("command %d", i))
 		if err != nil || !response.Success {
 			fmt.Println("Failed to write command, retrying to connect to cluster")
-		} else {
-			fmt.Println("Successfully wrote command")
 		}
+		fmt.Println("Successfully wrote command ", response.Success)
 		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 	}
 	runNodeAfterClient(peers)
