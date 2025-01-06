@@ -57,18 +57,19 @@ type NodeConfig struct {
 }
 
 type NodeChannels struct {
-	clientWriteRequestChannel    chan ClientRequest
-	clientWriteResponseChannel   chan ClientRequestResponse
-	electionChannel              chan BallotResponse
-	requestVoteChannel           chan Ballot
-	requestVoteResponseChannel   chan BallotResponse
-	installSnapshotChannel       chan InstallSnapshotRequest
-	appendEntriesRequestChannel  chan AppendEntriesRequest
-	appendEntriesResponseChannel chan AppendEntriesResponse
-	addPeerChannel               chan JoinClusterRequest
-	JoinClusterResponseChannel   chan JoinClusterResponse
-	clientReadRequestChannel     chan ClientReadRequest
-	clientReadResponseChannel    chan ClientReadResponse
+	clientRequestChannel           chan ClientRequest
+	clientResponseChannel          chan ClientRequestResponse
+	electionChannel                chan BallotResponse
+	requestVoteChannel             chan Ballot
+	requestVoteResponseChannel     chan BallotResponse
+	installSnapshotRequestChannel  chan InstallSnapshotRequest
+	installSnapshotResponseChannel chan InstallSnapshotResponse
+	appendEntriesRequestChannel    chan AppendEntriesRequest
+	appendEntriesResponseChannel   chan AppendEntriesResponse
+	addPeerChannel                 chan JoinClusterRequest
+	JoinClusterResponseChannel     chan JoinClusterResponse
+	clientReadRequestChannel       chan ClientReadRequest
+	clientReadResponseChannel      chan ClientReadResponse
 }
 type ElectionState struct {
 	votesReceived int
@@ -131,18 +132,19 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		electionTimer:  time.NewTimer(time.Duration(rand.Intn(config.ElectionTimeoutMax)) * time.Millisecond),
 		heartbeatTimer: time.NewTimer(1000 * time.Second),
 		channels: NodeChannels{
-			clientWriteRequestChannel:    make(chan ClientRequest, 1),
-			clientWriteResponseChannel:   make(chan ClientRequestResponse, 1),
-			electionChannel:              make(chan BallotResponse, 100),
-			requestVoteChannel:           make(chan Ballot, 1),
-			requestVoteResponseChannel:   make(chan BallotResponse, 1),
-			installSnapshotChannel:       make(chan InstallSnapshotRequest, 100),
-			appendEntriesRequestChannel:  make(chan AppendEntriesRequest, 1),
-			appendEntriesResponseChannel: make(chan AppendEntriesResponse, 1),
-			addPeerChannel:               make(chan JoinClusterRequest, 1),
-			JoinClusterResponseChannel:   make(chan JoinClusterResponse, 1),
-			clientReadRequestChannel:     make(chan ClientReadRequest, 1),
-			clientReadResponseChannel:    make(chan ClientReadResponse, 1),
+			clientRequestChannel:           make(chan ClientRequest, 1),
+			clientResponseChannel:          make(chan ClientRequestResponse, 1),
+			electionChannel:                make(chan BallotResponse, 100),
+			requestVoteChannel:             make(chan Ballot, 1),
+			requestVoteResponseChannel:     make(chan BallotResponse, 1),
+			installSnapshotRequestChannel:  make(chan InstallSnapshotRequest, 1),
+			installSnapshotResponseChannel: make(chan InstallSnapshotResponse, 1),
+			appendEntriesRequestChannel:    make(chan AppendEntriesRequest, 1),
+			appendEntriesResponseChannel:   make(chan AppendEntriesResponse, 1),
+			addPeerChannel:                 make(chan JoinClusterRequest, 1),
+			JoinClusterResponseChannel:     make(chan JoinClusterResponse, 1),
+			clientReadRequestChannel:       make(chan ClientReadRequest, 1),
+			clientReadResponseChannel:      make(chan ClientReadResponse, 1),
 		},
 		Mutex:              &sync.Mutex{},
 		clientRequestMutex: &sync.Mutex{},
@@ -221,7 +223,7 @@ func (n *Node) nodeDaemon() {
 			if n.role == Leader {
 				n.appendEntries()
 			}
-		case clientRequest := <-n.channels.clientWriteRequestChannel:
+		case clientRequest := <-n.channels.clientRequestChannel:
 			n.write(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
 			// when any node receives a vote request
@@ -237,8 +239,9 @@ func (n *Node) nodeDaemon() {
 			n.handleJoinClusterRequest(JoinClusterRequest)
 		case clientReadRequest := <-n.channels.clientReadRequestChannel:
 			n.handleClientReadRequest(clientReadRequest)
+		case installSnapshotRequest := <-n.channels.installSnapshotRequestChannel:
+			n.handleInstallSnapshotRequest(installSnapshotRequest)
 		}
-
 	}
 }
 
@@ -355,11 +358,5 @@ func (n *Node) addPeer(peer Peer) error {
 	}
 	n.Peers = append(n.Peers, peer)
 	log.Printf("Node %d added peer %d %s\n", n.state.id, peer.Id, peer.Addr)
-	if n.role == Leader {
-		n.leaderReplicationState[peer.Id] = FollowerReplicationState{
-			nextIndex:  n.state.LastLogIndex() + 1,
-			matchIndex: 0,
-		}
-	}
 	return nil
 }

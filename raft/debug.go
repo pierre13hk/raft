@@ -89,6 +89,10 @@ func (l *InMemoryLogger) Empty() bool {
 	return len(l.entries) == 0
 }
 
+func (l *InMemoryLogger) GetLastSnapshot() ([]byte, error) {
+	return nil, nil
+}
+
 /* Debug RPC */
 type InMemoryRaftRPC struct {
 	Peers map[uint64]*Node
@@ -156,6 +160,12 @@ func (r *InMemoryRaftRPC) ClientWriteRPC(peer Peer, req ClientRequest) (ClientRe
 func (r *InMemoryRaftRPC) InstallSnapshotRPC(peer Peer, req InstallSnapshotRequest) (InstallSnapshotResponse, error) {
 	return InstallSnapshotResponse{}, errors.New("Not implemented")
 }
+
+func (r *InMemoryRaftRPC) ClientReadRPC(peer Peer, req ClientRequest) (ClientRequestResponse, error) {
+	return ClientRequestResponse{}, errors.New("Not implemented")
+}
+
+func (r *InMemoryRaftRPC) Stop() {}
 
 /* Debug StateMachine */
 type DebugStateMachine struct {

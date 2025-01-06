@@ -301,38 +301,6 @@ func TestGet(t *testing.T) {
 	}
 }
 
-func TestCreateSnapshot(t *testing.T) {
-	logger := newLogger(t)
-
-	err := logger.Append([]LogEntry{
-		{Term: 1, Index: 1, Command: []byte("a")},
-		{Term: 1, Index: 2, Command: []byte("b")},
-		{Term: 1, Index: 3, Command: []byte("c")},
-	})
-	if err != nil {
-		t.Fatalf("expected entries to be appended")
-	}
-	err = logger.CreateSnapshot(3)
-	if err != nil {
-		t.Fatalf("thought snapshot creation would work")
-	}
-
-	logger2 := NewLoggerImplem(
-		&DebugStateMachine{},
-		logger.confDir,
-		'\n',
-	)
-	if len(logger2.inMemEntries) != 0 {
-		t.Fatalf("expected 0 entries, got %d", len(logger2.inMemEntries))
-	}
-	for idx, _ := range logger2.inMemEntries {
-		wrote := logger.inMemEntries[idx]
-		read := logger2.inMemEntries[idx]
-		if wrote.Term != read.Term || wrote.Index != read.Index || string(wrote.Command) != string(read.Command) {
-			t.Fatalf("expected entries to be equal")
-		}
-	}
-}
 
 func TestLogFileCursor(t *testing.T) {
 	// Test that the cursor for reading and

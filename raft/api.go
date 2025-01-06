@@ -30,8 +30,8 @@ func (n *Node) RecvClientRequest(request ClientRequest) ClientRequestResponse {
 		return ClientRequestResponse{Success: false}
 	}
 
-	n.channels.clientWriteRequestChannel <- request
-	response := <-n.channels.clientWriteResponseChannel
+	n.channels.clientRequestChannel <- request
+	response := <-n.channels.clientResponseChannel
 	if !response.Success {
 		log.Println("RecvClientRequest: Node ", n.state.id, " failed to handle client request")
 	} else {

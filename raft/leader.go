@@ -219,7 +219,7 @@ func (n *Node) write(request ClientRequest) {
 
 	n.state.Logger.Append([]LogEntry{logEntry})
 	replicated := n.appendEntries()
-	n.channels.clientWriteResponseChannel <- ClientRequestResponse{Success: replicated}
+	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
 }
 
 func (n *Node) checkCanAddPeer(request JoinClusterRequest) error {
@@ -259,12 +259,7 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 		Id:   request.Id,
 		Addr: fmt.Sprintf("%s:%s", request.Addr, request.Port),
 	}
-	if err := n.addPeer(peer); err != nil {
-		log.Printf("Node %d: error adding peer %d %s\n", n.state.id, request.Id, request.Addr)
-		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
-		return
-	}
-
+	
 	logEntry := n.createAddPeerLogEntry(request)
 	log.Printf("fml %x\n", n.leaderReplicationState)
 	n.state.Logger.Append([]LogEntry{logEntry})
@@ -274,12 +269,53 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 	if !replicated {
 		n.role = n.role | AddingPeer
 	}
-	// go n.rpc.InstallSnapshotRPC(peer, snapshot)
+	n.installSnapshotOnNewPeer(peer)
 	n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: replicated}
+	if err := n.addPeer(peer); err != nil {
+		log.Printf("Node %d: error adding peer %d %s\n", n.state.id, request.Id, request.Addr)
+		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
+		return
+	}
 }
 
 func (n *Node) RecvJoinClusterRequest(request JoinClusterRequest) JoinClusterResponse {
 	/* Receive an add peer request */
 	n.channels.addPeerChannel <- request
 	return <-n.channels.JoinClusterResponseChannel
+}
+
+func (n *Node) installSnapshotOnNewPeer(peer Peer) {
+	/* Install a snapshot on a new peer */
+	commitIndex := n.state.commitIndex
+	log.Println("Node ", n.state.id, " creating snapshot for new peer ", peer.Id)
+	err := n.state.CreateSnapshot(n.StateMachine, commitIndex)
+	if err != nil {
+		log.Println("Error creating snapshot")
+		return
+	}
+	snapshotBytes, err := n.state.GetLastSnapshot()
+	if err != nil {
+		log.Println("Error getting snapshot: ", err)
+		return
+	}
+	snapshotRequest := InstallSnapshotRequest{
+		Term:              n.state.currentTerm,
+		LeaderId:          n.state.id,
+		LastIncludedIndex: commitIndex,
+		LastIncludedTerm:  n.state.currentTerm,
+		LastConfig:        n.Peers,
+		Data:              snapshotBytes,
+	}
+
+	response, err := n.RaftRPC.InstallSnapshotRPC(peer, snapshotRequest)
+	for err != nil {
+		log.Println("Error installing snapshot on new peer", err)
+		response, err = n.RaftRPC.InstallSnapshotRPC(peer, snapshotRequest)
+		time.Sleep(100 * time.Millisecond)
+	}
+	if response.Success {
+		log.Println("Node ", n.state.id, " installed snapshot on new peer ", peer.Id)
+	} else {
+		log.Println("Node ", n.state.id, " failed to install snapshot on new peer ", peer.Id)
+	}
 }

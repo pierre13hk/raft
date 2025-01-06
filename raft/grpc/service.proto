@@ -49,7 +49,8 @@ message RPCJoinClusterResponse {
 }
 
 message RPCPeer {
-
+  uint64 id = 1;
+  string addr = 2;
 }
 
 message RPCInstallSnapshotRequest {
@@ -70,6 +71,7 @@ service RaftNode {
   rpc RequestVote(RPCBallot) returns (RPCBallotResponse) {}
   rpc AppendEntries(RPCAppendEntriesRequest) returns (RPCAppendEntriesResponse) {}
   rpc JoinCluster(RPCJoinClusterRequest) returns (RPCJoinClusterResponse) {}
+  rpc InstallSnapshot(RPCInstallSnapshotRequest) returns (RPCInstallSnapshotResponse){}
 }
 
 // Api messages and service for handling client requests

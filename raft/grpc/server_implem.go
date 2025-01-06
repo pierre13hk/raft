@@ -115,6 +115,28 @@ func (server *RaftRpcImplem) AppendEntriesRPC(peer rft.Peer, request rft.AppendE
 	return raftAppendEntriesResponse, nil
 }
 
+func (server *RaftRpcImplem) InstallSnapshotRPC(peer rft.Peer, req rft.InstallSnapshotRequest) (rft.InstallSnapshotResponse, error) {
+	grpcInstallSnapshotRequest := &RPCInstallSnapshotRequest{
+		Term:              req.Term,
+		LeaderId:          req.LeaderId,
+		LastIncludedIndex: req.LastIncludedIndex,
+		LastIncludedTerm:  req.LastIncludedTerm,
+		Data:              req.Data,
+	}
+	client, err := server.newGRPCClient(peer)
+	if err != nil {
+		return rft.InstallSnapshotResponse{}, err
+	}
+	grpcInstallSnapshotResponse, err := client.InstallSnapshot(context.Background(), grpcInstallSnapshotRequest)
+	if err != nil {
+		return rft.InstallSnapshotResponse{}, err
+	}
+	raftInstallSnapshotResponse := rft.InstallSnapshotResponse{
+		Term: grpcInstallSnapshotResponse.Term,
+	}
+	return raftInstallSnapshotResponse, nil
+}
+
 func (server *RaftRpcImplem) AddClientRPC() (*rft.ClusterInfo, error) {
 	return &rft.ClusterInfo{}, nil
 }
@@ -208,6 +230,21 @@ func (server *RaftRpcImplem) JoinCluster(ctx context.Context, request *RPCJoinCl
 		Message: raftJoinClusterResponse.Message,
 	}
 	return grpcJoinClusterResponse, nil
+}
+
+func (server *RaftRpcImplem) InstallSnapshot(ctx context.Context, request *RPCInstallSnapshotRequest) (*RPCInstallSnapshotResponse, error) {
+	raftInstallSnapshotRequest := rft.InstallSnapshotRequest{
+		Term:              request.Term,
+		LeaderId:          request.LeaderId,
+		LastIncludedIndex: request.LastIncludedIndex,
+		LastIncludedTerm:  request.LastIncludedTerm,
+		Data:              request.Data,
+	}
+	raftInstallSnapshotResponse := server.node.RecvInstallSnapshotRequest(raftInstallSnapshotRequest)
+	grpcInstallSnapshotResponse := &RPCInstallSnapshotResponse{
+		Term: raftInstallSnapshotResponse.Term,
+	}
+	return grpcInstallSnapshotResponse, nil
 }
 
 // gRPC raft client service implementation

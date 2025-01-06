@@ -26,6 +26,7 @@ type RaftNodeClient interface {
 	RequestVote(ctx context.Context, in *RPCBallot, opts ...grpc.CallOption) (*RPCBallotResponse, error)
 	AppendEntries(ctx context.Context, in *RPCAppendEntriesRequest, opts ...grpc.CallOption) (*RPCAppendEntriesResponse, error)
 	JoinCluster(ctx context.Context, in *RPCJoinClusterRequest, opts ...grpc.CallOption) (*RPCJoinClusterResponse, error)
+	InstallSnapshot(ctx context.Context, in *RPCInstallSnapshotRequest, opts ...grpc.CallOption) (*RPCInstallSnapshotResponse, error)
 }
 
 type raftNodeClient struct {
@@ -63,6 +64,15 @@ func (c *raftNodeClient) JoinCluster(ctx context.Context, in *RPCJoinClusterRequ
 	return out, nil
 }
 
+func (c *raftNodeClient) InstallSnapshot(ctx context.Context, in *RPCInstallSnapshotRequest, opts ...grpc.CallOption) (*RPCInstallSnapshotResponse, error) {
+	out := new(RPCInstallSnapshotResponse)
+	err := c.cc.Invoke(ctx, "/RaftNode/InstallSnapshot", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RaftNodeServer is the server API for RaftNode service.
 // All implementations must embed UnimplementedRaftNodeServer
 // for forward compatibility
@@ -70,6 +80,7 @@ type RaftNodeServer interface {
 	RequestVote(context.Context, *RPCBallot) (*RPCBallotResponse, error)
 	AppendEntries(context.Context, *RPCAppendEntriesRequest) (*RPCAppendEntriesResponse, error)
 	JoinCluster(context.Context, *RPCJoinClusterRequest) (*RPCJoinClusterResponse, error)
+	InstallSnapshot(context.Context, *RPCInstallSnapshotRequest) (*RPCInstallSnapshotResponse, error)
 	mustEmbedUnimplementedRaftNodeServer()
 }
 
@@ -85,6 +96,9 @@ func (UnimplementedRaftNodeServer) AppendEntries(context.Context, *RPCAppendEntr
 }
 func (UnimplementedRaftNodeServer) JoinCluster(context.Context, *RPCJoinClusterRequest) (*RPCJoinClusterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JoinCluster not implemented")
+}
+func (UnimplementedRaftNodeServer) InstallSnapshot(context.Context, *RPCInstallSnapshotRequest) (*RPCInstallSnapshotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstallSnapshot not implemented")
 }
 func (UnimplementedRaftNodeServer) mustEmbedUnimplementedRaftNodeServer() {}
 
@@ -153,6 +167,24 @@ func _RaftNode_JoinCluster_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RaftNode_InstallSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RPCInstallSnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RaftNodeServer).InstallSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/RaftNode/InstallSnapshot",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RaftNodeServer).InstallSnapshot(ctx, req.(*RPCInstallSnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RaftNode_ServiceDesc is the grpc.ServiceDesc for RaftNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -171,6 +203,10 @@ var RaftNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "JoinCluster",
 			Handler:    _RaftNode_JoinCluster_Handler,
+		},
+		{
+			MethodName: "InstallSnapshot",
+			Handler:    _RaftNode_InstallSnapshot_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

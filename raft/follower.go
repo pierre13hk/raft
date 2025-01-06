@@ -96,3 +96,15 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 	n.RestartHeartbeatTimer()
 	return InstallSnapshotResponse{Term: n.state.currentTerm, Success: true}
 }
+
+func (n *Node) handleInstallSnapshotRequest(req InstallSnapshotRequest) {
+	/* Called by a node when it receives an InstallSnapshot request */
+	resp := n.InstallSnapshot(req)
+	n.channels.installSnapshotResponseChannel <- resp
+}
+
+func (n *Node) RecvInstallSnapshotRequest(req InstallSnapshotRequest) InstallSnapshotResponse {
+	/* Called by the RPC layer when a node receives an InstallSnapshot RPC */
+	n.channels.installSnapshotRequestChannel <- req
+	return <-n.channels.installSnapshotResponseChannel
+}
