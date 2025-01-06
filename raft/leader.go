@@ -288,12 +288,12 @@ func (n *Node) installSnapshotOnNewPeer(peer Peer) {
 	/* Install a snapshot on a new peer */
 	commitIndex := n.state.commitIndex
 	log.Println("Node ", n.state.id, " creating snapshot for new peer ", peer.Id)
-	err := n.state.CreateSnapshot(n.StateMachine, commitIndex)
+	err := n.CreateSnapshot(n.StateMachine, commitIndex)
 	if err != nil {
 		log.Println("Error creating snapshot")
 		return
 	}
-	snapshotBytes, err := n.state.GetLastSnapshot()
+	snapshotBytes, err := n.GetLastSnapshot()
 	if err != nil {
 		log.Println("Error getting snapshot: ", err)
 		return

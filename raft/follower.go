@@ -90,7 +90,7 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 		log.Printf("Node %d: InstallSnapshot: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
 		return InstallSnapshotResponse{Term: n.state.currentTerm, Success: false}
 	}
-	n.state.Logger.InstallSnapshot(req.Data, req.LastIncludedIndex)
+	// Todo: deserialize snapshot etc..
 	n.state.lastApplied = req.LastIncludedIndex
 	n.Peers = req.LastConfig
 	n.RestartHeartbeatTimer()

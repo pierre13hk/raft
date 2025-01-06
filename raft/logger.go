@@ -91,17 +91,6 @@ type Logger interface {
 	GetRange(start uint64, end uint64) ([]LogEntry, error)
 	// Append log entries to the log
 	Append(entries []LogEntry) error
-	// Create a snapshot of the log
-	CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error
-	// Return a new snapshot
-	GetLastSnapshot() ([]byte, error)
-	// Install a snapshot
-	InstallSnapshot(snapshot []byte, lastIncludedIndex uint64) error
-}
-
-type SnapshotInfo struct {
-	LastCommitedIndex uint64
-	Date              string
 }
 
 type LoggerConfig struct {
@@ -259,33 +248,7 @@ func (l *LoggerImplem) appendToLogFile(content []byte) error {
 	return nil
 }
 
-func (l *LoggerImplem) getLastSnapsotFileName() (string, error) {
-	entries, err := os.ReadDir(l.confDir + "/" + snapshotDir)
-	if err != nil {
-		return "", err
-	}
-	if len(entries) == 0 {
-		return "nil", errors.New("No snapshot found")
-	}
-	var latestSnapshot os.DirEntry
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if latestSnapshot == nil {
-			latestSnapshot = entry
-			continue
-		}
-		info, err := entry.Info()
-		if err == nil {
-			latestInfo, _ := latestSnapshot.Info()
-			if info.ModTime().After(latestInfo.ModTime()) {
-				latestSnapshot = entry
-			}
-		}
-	}
-	return latestSnapshot.Name(), nil
-}
+
 
 func (l *LoggerImplem) createConfDir() error {
 	err := os.MkdirAll(l.confDir, 0777)
@@ -328,44 +291,10 @@ func (l *LoggerImplem) initialize() error {
 	if err != nil {
 		return err
 	}
-	os.Mkdir(l.confDir+"/"+snapshotDir, 0777)
-	snapshotFileName, err := l.getLastSnapsotFileName()
-	if err != nil {
-		// there is no snapshot, check that the first log entry is at index 0
-		if len(l.inMemEntries) > 0 && l.inMemEntries[0].Index != 0 {
-			return FileError
-		}
-	}
-	err = l.RecoverStateMachine(snapshotFileName)
-	if err != nil {
-		return err
-	}
+
 	// At this point:
 	// - logFile is open and ready for writing
 	// - inMemEntries contains all log entries
-	// - StateMachine is initialized with the latest snapshot
-	return nil
-}
-
-func (l *LoggerImplem) RecoverStateMachine(fileName string) error {
-	file, err := os.Open(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	bytes := make([]byte, info.Size())
-	_, err = file.Read(bytes)
-	if err != nil {
-		return err
-	}
-	err = l.Deserialize(bytes)
-	if err != nil {
-		return InvalidSnapShotError
-	}
 	return nil
 }
 
@@ -403,57 +332,6 @@ func (l *LoggerImplem) readLogFile() error {
 	return nil
 }
 
-func (l *LoggerImplem) CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error {
-	snapshotCount := len(l.config.SnapshotsInfo)
-	snapshotFileName := fmt.Sprintf("%s/%s/%d%s", l.confDir, snapshotDir, snapshotCount, spashotSuffix)
-	snapshotFile, err := os.Create(snapshotFileName)
-	if err != nil {
-		return err
-	}
-	defer snapshotFile.Close()
-	bytes, err := sm.Serialize()
-	if err != nil {
-		l.logError("Error serializing snapshot: " + err.Error())
-		return err
-	}
-	log.Println("Snapshot bytes: ", bytes)
-	wrt, err := snapshotFile.Write(bytes)
-	if err != nil {
-		return err
-	}
-	log.Println("Wrote snapshot: ", wrt, " out of ", len(bytes))
-	snapshotInfo := SnapshotInfo{LastCommitedIndex: lastCommitedIndex, Date: "now"}
-	l.config.SnapshotsInfo[snapshotFileName] = snapshotInfo
-	l.config.LastSnapshotName = snapshotFileName
-	err = l.saveConfig()
-	err = l.Cut(lastCommitedIndex)
-	if err != nil {
-		l.logError("Error truncating log: " + err.Error())
-		return err
-	}
-	l.logError("Snapshot created, truncated to: " + fmt.Sprint(lastCommitedIndex))
-	return nil
-}
-
-func (l *LoggerImplem) InstallSnapshot(snapshot []byte, lastIncludedIndex uint64) error {
-	// Remove all entries in the log up to lastIncludedIndex
-	// note: lastIncludedIndex is removed from the log aswell
-	if lastIncludedIndex < l.LastLogIndex() {
-		err := l.Cut(lastIncludedIndex)
-		if err != nil {
-			return err
-		}
-	} else {
-		l.inMemEntries = make([]LogEntry, 0, 128)
-	}
-	err := l.Deserialize(snapshot)
-	if err != nil {
-		l.logError("Error deserializing snapshot: " + err.Error())
-		return err
-	}
-	l.CreateSnapshot(l.StateMachine, lastIncludedIndex)
-	return nil
-}
 
 func (l *LoggerImplem) saveConfig() error {
 	out, err := l.config.Serialize()
@@ -486,29 +364,4 @@ func (l *LoggerImplem) loadConfig() error {
 	return err
 }
 
-func (l *LoggerImplem) StateMachineRead(command []byte) ([]byte, error) {
-	fmt.Println("StateMachineRead: *sm = ", l.StateMachine)
-	return l.Read(command)
-}
 
-func (l *LoggerImplem) GetLastSnapshot() ([]byte, error) {
-	snapshotFileName, err := l.getLastSnapsotFileName()
-	if err != nil {
-		return nil, err
-	}
-	file, err := os.Open(snapshotFileName)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-	bytes := make([]byte, info.Size())
-	_, err = file.Read(bytes)
-	if err != nil {
-		return nil, err
-	}
-	return bytes, nil
-}
