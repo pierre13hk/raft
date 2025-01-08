@@ -24,7 +24,9 @@ const (
 )
 
 const (
-	SNAPSHOT_DIR = "snapshots"
+	SNAPSHOT_DIR = "raft/snapshots"
+	snapshotDir          = "snapshots"
+	spashotSuffix        = ".snapshot"
 )
 
 func (r Role) String() string {
@@ -164,7 +166,12 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		Mutex:              &sync.Mutex{},
 		clientRequestMutex: &sync.Mutex{},
 	}
+	node.init()
 	return &node
+}
+
+func (n *Node) init() {
+	n.createSnapshotsDir()
 }
 
 func (n *Node) Start() {

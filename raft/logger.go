@@ -32,8 +32,6 @@ var (
 const (
 	logFileName          = "raft.log"
 	configFileName       = "logger.conf"
-	snapshotDir          = "snapshots"
-	spashotSuffix        = ".snapshot"
 	logEntryDataSplitter = ","
 	logEntryFormat       = "%d,%d,%d,%s"
 )
