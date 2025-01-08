@@ -4,13 +4,12 @@ services:
     ports:
       - "9001:9001"
     volumes:
-      - ./output/1:/app/conf
+      - ./output/1:/app/raft
     environment:
       - ID=1
       - PORT=9001
       - PEERS=2|node2:9002,3|node3:9003
       - DROP_RATE=0.1
-      - PARTITION=true
       - PARTITION_INTERVAL_MS=2000
       - PARTITION_OUTAGE_MS=200
   node2:
@@ -18,13 +17,12 @@ services:
     ports:
       - "9002:9002"
     volumes:
-      - ./output/2:/app/conf
+      - ./output/2:/app/raft
     environment:
       - ID=2
       - PORT=9002
       - PEERS=1|node1:9001,3|node3:9003
       - DROP_RATE=0.2
-      - PARTITION=true
       - PARTITION_INTERVAL_MS=2000
       - PARTITION_OUTAGE_MS=200
   node3:
@@ -32,13 +30,12 @@ services:
     ports:
       - "9003:9003"
     volumes:
-      - ./output/3:/app/conf
+      - ./output/3:/app/raft
     environment:
       - ID=3
       - PORT=9003
       - PEERS=1|node1:9001,2|node2:9002
       - DROP_RATE=0.1
-      - PARTITION=true
       - PARTITION_INTERVAL_MS=2000
       - PARTITION_OUTAGE_MS=200
   client:
@@ -48,5 +45,5 @@ services:
     environment:
       - PEERS=1|node1:9001,2|node2:9002,3|node3:9003
       - CLIENT=true
-      - REQUESTS=100
+      - REQUESTS=33
       - WAIT_BETWEEN_REQUEST_MS=200
