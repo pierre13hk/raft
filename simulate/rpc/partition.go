@@ -127,5 +127,5 @@ func (d *PartitionRPC) InstallSnapshotRPC(peer raft.Peer, req raft.InstallSnapsh
 	if !d.transmitting {
 		return raft.InstallSnapshotResponse{}, ErrPartitionRPC
 	}
-	return raft.InstallSnapshotResponse{}, nil
+	return d.raftRpcImpl.InstallSnapshotRPC(peer, req)
 }

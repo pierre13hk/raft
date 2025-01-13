@@ -87,5 +87,5 @@ func (d *DropRPC) InstallSnapshotRPC(peer raft.Peer, req raft.InstallSnapshotReq
 	if rand.Float32() < d.dropRate {
 		return raft.InstallSnapshotResponse{}, ErrDropRPC
 	}
-	return raft.InstallSnapshotResponse{}, nil
+	return d.raftRpcImpl.InstallSnapshotRPC(peer, req)
 }
