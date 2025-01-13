@@ -132,7 +132,7 @@ func main() {
 			addr,
 			rpc,
 			&sm,
-			"/app/conf",
+			"/app/raft/conf",
 			conf,
 		)
 		node.Peers = peers
