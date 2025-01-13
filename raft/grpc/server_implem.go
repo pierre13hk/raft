@@ -133,6 +133,7 @@ func (server *RaftRpcImplem) InstallSnapshotRPC(peer rft.Peer, req rft.InstallSn
 	}
 	raftInstallSnapshotResponse := rft.InstallSnapshotResponse{
 		Term: grpcInstallSnapshotResponse.Term,
+		Success: grpcInstallSnapshotResponse.Success,
 	}
 	return raftInstallSnapshotResponse, nil
 }
@@ -243,6 +244,7 @@ func (server *RaftRpcImplem) InstallSnapshot(ctx context.Context, request *RPCIn
 	raftInstallSnapshotResponse := server.node.RecvInstallSnapshotRequest(raftInstallSnapshotRequest)
 	grpcInstallSnapshotResponse := &RPCInstallSnapshotResponse{
 		Term: raftInstallSnapshotResponse.Term,
+		Success: raftInstallSnapshotResponse.Success,
 	}
 	return grpcInstallSnapshotResponse, nil
 }

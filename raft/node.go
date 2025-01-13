@@ -172,6 +172,7 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 
 func (n *Node) init() {
 	n.createSnapshotsDir()
+	n.snapshotsInfo = make(map[string]SnapshotInfo)
 }
 
 func (n *Node) Start() {
@@ -385,7 +386,7 @@ func (n *Node) addPeer(peer Peer) error {
 
 
 func (l *Node) getLastSnapsotFileName() (string, error) {
-	entries, err := os.ReadDir(SNAPSHOT_DIR + "/" + snapshotDir)
+	entries, err := os.ReadDir(SNAPSHOT_DIR)
 	if err != nil {
 		return "", err
 	}
@@ -409,7 +410,8 @@ func (l *Node) getLastSnapsotFileName() (string, error) {
 			}
 		}
 	}
-	return latestSnapshot.Name(), nil
+	fullPath := fmt.Sprintf("%s/%s", SNAPSHOT_DIR, latestSnapshot.Name())
+	return fullPath, nil
 }
 
 func (n *Node) createSnapshotsDir() error {
@@ -468,7 +470,7 @@ func (n *Node) CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error {
 	n.snapshotsInfo[snapshotFileName] = snapshotInfo
 	n.lastSnapshotName = snapshotFileName
 	err = n.saveConfig()
-	err = n.state.Cut(lastCommitedIndex)
+	//err = n.state.Cut(lastCommitedIndex)
 	if err != nil {
 		log.Fatalf("Error truncating log: " + err.Error())
 		return err

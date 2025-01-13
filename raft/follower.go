@@ -91,6 +91,12 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 		return InstallSnapshotResponse{Term: n.state.currentTerm, Success: false}
 	}
 	// Todo: deserialize snapshot etc..
+	serializationError := n.StateMachine.Deserialize(req.Data)
+	if serializationError != nil {
+		log.Printf("Node %d: InstallSnapshot: Error deserializing snapshot %v\n", n.state.id, serializationError)
+	}
+	log.Printf("Node %d: InstallSnapshot: Snapshot deserialized into SM\n", n.state.id)
+
 	n.state.lastApplied = req.LastIncludedIndex
 	n.Peers = req.LastConfig
 	n.RestartHeartbeatTimer()
@@ -99,6 +105,7 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 
 func (n *Node) handleInstallSnapshotRequest(req InstallSnapshotRequest) {
 	/* Called by a node when it receives an InstallSnapshot request */
+	log.Println("Node ", n.state.id, " received InstallSnapshot request")
 	resp := n.InstallSnapshot(req)
 	n.channels.installSnapshotResponseChannel <- resp
 }

@@ -269,7 +269,16 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 	if !replicated {
 		n.role = n.role | AddingPeer
 	}
-	n.installSnapshotOnNewPeer(peer)
+	log.Println("Node ", n.state.id, " grpc ", n.RaftRPC)
+	// If we run this immediately, the peer and the leader
+	// will be deadlocked. The leader will be waiting for the
+	// peer to install the snapshot, and the peer will be waiting
+	// for the leader to return from this function.
+	defer n.installSnapshotOnNewPeer(peer)
+	n.leaderReplicationState[peer.Id] = FollowerReplicationState{
+		nextIndex:  n.state.LastLogIndex() + 1,
+		matchIndex: 0,
+	}
 	n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: replicated}
 	if err := n.addPeer(peer); err != nil {
 		log.Printf("Node %d: error adding peer %d %s\n", n.state.id, request.Id, request.Addr)
@@ -306,8 +315,9 @@ func (n *Node) installSnapshotOnNewPeer(peer Peer) {
 		LastConfig:        n.Peers,
 		Data:              snapshotBytes,
 	}
-
+	log.Println("Node ", n.state.id, " installing snapshot on new peer grpc addr", peer.Id, n.RaftRPC)
 	response, err := n.RaftRPC.InstallSnapshotRPC(peer, snapshotRequest)
+	log.Println("Node ", n.state.id, " installed snapshot on new peer ", peer.Id, " response ", response, " error ", err)
 	for err != nil {
 		log.Println("Error installing snapshot on new peer", err)
 		response, err = n.RaftRPC.InstallSnapshotRPC(peer, snapshotRequest)
