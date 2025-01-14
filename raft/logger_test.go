@@ -301,7 +301,6 @@ func TestGet(t *testing.T) {
 	}
 }
 
-
 func TestLogFileCursor(t *testing.T) {
 	// Test that the cursor for reading and
 	// writing to the log file works as expected

@@ -259,7 +259,7 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 		Id:   request.Id,
 		Addr: fmt.Sprintf("%s:%s", request.Addr, request.Port),
 	}
-	
+
 	logEntry := n.createAddPeerLogEntry(request)
 	log.Printf("fml %x\n", n.leaderReplicationState)
 	n.state.Logger.Append([]LogEntry{logEntry})

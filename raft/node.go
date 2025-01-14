@@ -24,9 +24,9 @@ const (
 )
 
 const (
-	SNAPSHOT_DIR = "raft/snapshots"
-	snapshotDir          = "snapshots"
-	spashotSuffix        = ".snapshot"
+	SNAPSHOT_DIR  = "raft/snapshots"
+	snapshotDir   = "snapshots"
+	spashotSuffix = ".snapshot"
 )
 
 func (r Role) String() string {
@@ -97,9 +97,9 @@ type Node struct {
 	config       NodeConfig
 	StateMachine StateMachine
 	RaftRPC
-	rpcStarted    bool
-	Peers         []Peer
-	snapshotsInfo map[string]SnapshotInfo
+	rpcStarted       bool
+	Peers            []Peer
+	snapshotsInfo    map[string]SnapshotInfo
 	lastSnapshotName string
 
 	electionTimer  *time.Timer
@@ -384,7 +384,6 @@ func (n *Node) addPeer(peer Peer) error {
 	return nil
 }
 
-
 func (l *Node) getLastSnapsotFileName() (string, error) {
 	entries, err := os.ReadDir(SNAPSHOT_DIR)
 	if err != nil {
@@ -423,7 +422,6 @@ func (n *Node) createSnapshotsDir() error {
 	return nil
 }
 
-
 func (n *Node) RecoverStateMachine(fileName string) error {
 	file, err := os.Open(fileName)
 	if err != nil {
@@ -445,7 +443,6 @@ func (n *Node) RecoverStateMachine(fileName string) error {
 	}
 	return nil
 }
-
 
 func (n *Node) CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error {
 	snapshotCount := len(n.snapshotsInfo)

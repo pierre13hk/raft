@@ -4,13 +4,32 @@ import (
 	"log"
 )
 
+func (n *Node) checkAppendEntriesRequestTermOK(req AppendEntriesRequest) bool {
+	/* AppendEntries RPC */
+	return req.Term >= n.state.currentTerm
+}
+
+func (n *Node) checkAppendEntriesRequestForcesStepDown(req AppendEntriesRequest) bool {
+	/* Check if the append entries request means we lost our election */
+	return n.state.currentTerm <= req.Term && n.role == Candidate
+}
+
+func (n *Node) checkAppendEntriesRequestLogPresent(req AppendEntriesRequest) bool {
+	/* Check if the log entry is present */
+	lg, err := n.state.Get(req.PrevLogIndex)
+	if err != nil {
+		return false
+	}
+	return lg.Term == req.PrevLogTerm
+}
+
 func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntriesResponse {
 	/* AppendEntries RPC */
-	if req.Term < n.state.currentTerm {
+	if !n.checkAppendEntriesRequestTermOK(req) {
 		log.Printf("Node %d: AppendEntries: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
-	if n.state.currentTerm <= req.Term && n.role == Candidate {
+	if n.checkAppendEntriesRequestForcesStepDown(req) {
 		log.Printf("Node %d: AppendEntries: Term %d >= currentTerm %d, stepping down\n", n.state.id, req.Term, n.state.currentTerm)
 		n.role = Follower
 		n.state.currentTerm = req.Term
@@ -20,15 +39,11 @@ func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntries
 	}
 
 	n.RestartHeartbeatTimer()
-	lg, err := n.state.Get(req.PrevLogIndex)
-	if err != nil {
+	if !n.checkAppendEntriesRequestLogPresent(req) {
 		log.Println("AppendEntries: coudn't get log at index", req.PrevLogIndex)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
 	}
-	if lg.Term != req.PrevLogTerm {
-		log.Printf("AppendEntries: Log doesn't match log at index term: %d req prevlogterm %d\n", lg.Term, req.PrevLogTerm)
-		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
-	}
+
 	if n.role != Follower {
 		n.loseElection()
 	}

@@ -246,8 +246,6 @@ func (l *LoggerImplem) appendToLogFile(content []byte) error {
 	return nil
 }
 
-
-
 func (l *LoggerImplem) createConfDir() error {
 	err := os.MkdirAll(l.confDir, 0777)
 	if err != nil {
@@ -330,7 +328,6 @@ func (l *LoggerImplem) readLogFile() error {
 	return nil
 }
 
-
 func (l *LoggerImplem) saveConfig() error {
 	out, err := l.config.Serialize()
 	if err != nil {
@@ -361,5 +358,3 @@ func (l *LoggerImplem) loadConfig() error {
 	err = json.Unmarshal(bytes, &l.config)
 	return err
 }
-
-
