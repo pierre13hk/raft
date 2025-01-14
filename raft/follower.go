@@ -17,10 +17,13 @@ func (n *Node) checkAppendEntriesRequestForcesStepDown(req AppendEntriesRequest)
 func (n *Node) checkAppendEntriesRequestLogPresent(req AppendEntriesRequest) bool {
 	/* Check if the log entry is present */
 	lg, err := n.state.Get(req.PrevLogIndex)
-	if err != nil {
-		return false
+	if err == nil {
+		return lg.Term == req.PrevLogTerm
 	}
-	return lg.Term == req.PrevLogTerm
+	// If we have created or installed a snapshot the log entry is no longer present
+	// in the log. But we can know if we're up to date by checking the last included index
+	// of the snapshot, which will be equal to or smaller than n.state.lastApplied
+	return req.PrevLogIndex <= n.state.lastApplied
 }
 
 func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntriesResponse {
