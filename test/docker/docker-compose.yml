@@ -42,6 +42,8 @@ services:
     build: .
     ports:
       - "9004:9004"
+    volumes:
+      - ./output/client:/app/raft
     environment:
       - PEERS=1|node1:9001,2|node2:9002,3|node3:9003
       - CLIENT=true
