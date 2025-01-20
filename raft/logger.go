@@ -73,7 +73,7 @@ func StringToLogEntry(s string) (LogEntry, error) {
 }
 
 type Logger interface {
-	// Truncate the log from the beginning to the given index (inclusive)
+	// Remove all logs from the index (exclusive) to the end
 	TruncateTo(index uint64) error
 	// Remove all logs from the beginning to the given index (inclusive)
 	Cut(index uint64) error

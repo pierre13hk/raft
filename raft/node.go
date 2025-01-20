@@ -447,22 +447,16 @@ func (n *Node) RecoverStateMachine(fileName string) error {
 func (n *Node) CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error {
 	snapshotCount := len(n.snapshotsInfo)
 	snapshotFileName := fmt.Sprintf("%s/%d%s", SNAPSHOT_DIR, snapshotCount, spashotSuffix)
-	snapshotFile, err := os.Create(snapshotFileName)
-	if err != nil {
-		return err
-	}
-	defer snapshotFile.Close()
 	bytes, err := sm.Serialize()
 	if err != nil {
-		log.Fatalf("Error serializing snapshot: " + err.Error())
+		log.Println("Error serializing state machine")
 		return err
 	}
-	log.Println("Snapshot bytes: ", bytes)
-	wrt, err := snapshotFile.Write(bytes)
+	err = n.saveSnapshotToDisk(bytes)
 	if err != nil {
+		log.Println("Error saving snapshot to disk")
 		return err
 	}
-	log.Println("Wrote snapshot: ", wrt, " out of ", len(bytes))
 	snapshotInfo := SnapshotInfo{LastCommitedIndex: lastCommitedIndex, Date: "now"}
 	n.snapshotsInfo[snapshotFileName] = snapshotInfo
 	n.lastSnapshotName = snapshotFileName
@@ -473,6 +467,20 @@ func (n *Node) CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error {
 		return err
 	}
 	log.Println("Snapshot created, truncated to: " + fmt.Sprint(lastCommitedIndex))
+	return nil
+}
+
+func (n *Node) saveSnapshotToDisk(snapshot []byte) error {
+	snapshotFileName := fmt.Sprintf("%s/%d%s", SNAPSHOT_DIR, len(n.snapshotsInfo), spashotSuffix)
+	snapshotFile, err := os.Create(snapshotFileName)
+	if err != nil {
+		return err
+	}
+	defer snapshotFile.Close()
+	_, err = snapshotFile.Write(snapshot)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

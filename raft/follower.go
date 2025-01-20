@@ -112,11 +112,20 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 	serializationError := n.StateMachine.Deserialize(req.Data)
 	if serializationError != nil {
 		log.Printf("Node %d: InstallSnapshot: Error deserializing snapshot %v\n", n.state.id, serializationError)
+		return InstallSnapshotResponse{Term: n.state.currentTerm, Success: false}
 	}
 	log.Printf("Node %d: InstallSnapshot: Snapshot deserialized into SM\n", n.state.id)
-
+	n.saveSnapshotToDisk(req.Data)
+	n.state.currentTerm = req.Term
+	n.state.votedFor = req.LeaderId
 	n.state.lastApplied = req.LastIncludedIndex
 	n.Peers = req.LastConfig
+	n.state.save()
+	truncateTo := req.LastIncludedIndex
+	if n.state.LastLogIndex() < req.LastIncludedIndex {
+		truncateTo = n.state.LastLogIndex()
+	}
+	n.state.TruncateTo(truncateTo)
 	n.RestartHeartbeatTimer()
 	return InstallSnapshotResponse{Term: n.state.currentTerm, Success: true}
 }
