@@ -200,6 +200,9 @@ func (l *LoggerImplem) Empty() bool {
 }
 
 func (l *LoggerImplem) Get(index uint64) (LogEntry, error) {
+	if len(l.inMemEntries) == 0 {
+		return LogEntry{}, InvalidIndexError
+	}
 	startIndex := l.inMemEntries[0].Index
 	offset := index - startIndex
 	if index < startIndex || offset+1 > uint64(len(l.inMemEntries)) {
