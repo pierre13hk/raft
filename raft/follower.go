@@ -99,7 +99,8 @@ type InstallSnapshotResponse struct {
 	Success bool
 }
 
-func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotResponse {
+
+func (n *Node) installSnapshotFromRequest(req InstallSnapshotRequest) InstallSnapshotResponse {
 	/*
 		InstallSnapshot RPC
 		Todo: implement chunking
@@ -108,7 +109,6 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 		log.Printf("Node %d: InstallSnapshot: Term %d < currentTerm %d\n", n.state.id, req.Term, n.state.currentTerm)
 		return InstallSnapshotResponse{Term: n.state.currentTerm, Success: false}
 	}
-	// Todo: deserialize snapshot etc..
 	serializationError := n.StateMachine.Deserialize(req.Data)
 	if serializationError != nil {
 		log.Printf("Node %d: InstallSnapshot: Error deserializing snapshot %v\n", n.state.id, serializationError)
@@ -133,7 +133,7 @@ func (n *Node) InstallSnapshot(req InstallSnapshotRequest) InstallSnapshotRespon
 func (n *Node) handleInstallSnapshotRequest(req InstallSnapshotRequest) {
 	/* Called by a node when it receives an InstallSnapshot request */
 	log.Println("Node ", n.state.id, " received InstallSnapshot request")
-	resp := n.InstallSnapshot(req)
+	resp := n.installSnapshotFromRequest(req)
 	n.channels.installSnapshotResponseChannel <- resp
 }
 
