@@ -27,7 +27,7 @@ type AppendEntriesResponse struct {
 	Success bool
 }
 
-func (n *Node) RestartHeartbeatTimerLeader() {
+func (n *Node) restartHeartbeatTimerLeader() {
 	/* Restart the heartbeat timer */
 	n.heartbeatTimer.Stop()
 	n.heartbeatTimer.Reset(time.Duration(n.config.HeartbeatTimeout) * time.Millisecond)
@@ -36,7 +36,7 @@ func (n *Node) RestartHeartbeatTimerLeader() {
 func (n *Node) becomeLeader() {
 	/* Become the leader */
 	n.role = Leader
-	n.StopElectionTimer()
+	n.stopElectionTimer()
 	n.leaderDaemon()
 }
 
@@ -50,12 +50,12 @@ func (n *Node) leaderDaemon() {
 		}
 	}
 	n.appendEntries()
-	n.RestartHeartbeatTimerLeader()
+	n.restartHeartbeatTimerLeader()
 }
 
 func (n *Node) appendEntries() bool {
 	/* Replicate log entries to all peers */
-	n.StopElectionTimer()
+	n.stopElectionTimer()
 	replicated := make(chan bool, len(n.Peers))
 	for _, peer := range n.Peers {
 		if peer.Id == n.state.id {
@@ -74,7 +74,7 @@ func (n *Node) appendEntries() bool {
 			replicated_count += 1
 		}
 	}
-	n.RestartHeartbeatTimerLeader()
+	n.restartHeartbeatTimerLeader()
 	if replicated_count > len(n.Peers)/2 {
 		// More than half of the peers have replicated the log entries
 		// If the last log is of our term, commit it and by extension all previous logs

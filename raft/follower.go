@@ -37,11 +37,11 @@ func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntries
 		n.role = Follower
 		n.state.currentTerm = req.Term
 		n.state.votedFor = req.LeaderId
-		n.RestartHeartbeatTimer()
+		n.restartHeartbeatTimer()
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: true}
 	}
 
-	n.RestartHeartbeatTimer()
+	n.restartHeartbeatTimer()
 	if !n.checkAppendEntriesRequestLogPresent(req) {
 		log.Println("AppendEntries: coudn't get log at index", req.PrevLogIndex)
 		return AppendEntriesResponse{Term: n.state.currentTerm, Success: false}
@@ -126,7 +126,7 @@ func (n *Node) installSnapshotFromRequest(req InstallSnapshotRequest) InstallSna
 		truncateTo = n.state.LastLogIndex()
 	}
 	n.state.TruncateTo(truncateTo)
-	n.RestartHeartbeatTimer()
+	n.restartHeartbeatTimer()
 	return InstallSnapshotResponse{Term: n.state.currentTerm, Success: true}
 }
 

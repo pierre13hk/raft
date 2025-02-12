@@ -190,27 +190,27 @@ func (n *Node) Stop() {
 	n.run = false
 }
 
-func (n *Node) RestartElectionTimer() {
-	n.StopElectionTimer()
+func (n *Node) restartElectionTimer() {
+	n.stopElectionTimer()
 	t := rand.Intn(n.config.ElectionTimeoutMax-n.config.ElectionTimeoutMin) + n.config.ElectionTimeoutMin
 	n.electionTimer.Reset(time.Duration(t) * time.Millisecond)
 
 }
 
-func (n *Node) RestartHeartbeatTimer() {
+func (n *Node) restartHeartbeatTimer() {
 	/* Restart the heartbeat timer for followers */
-	n.StopElectionTimer()
+	n.stopElectionTimer()
 	n.electionTimer.Reset(time.Duration(n.config.ElectionTimeoutMin) * time.Millisecond)
 }
 
 func (n *Node) forceNewElection() {
 	/* Force a new election */
-	n.StopElectionTimer()
-	n.StopHeartbeatTimer()
+	n.stopElectionTimer()
+	n.stopHeartbeatTimer()
 	n.electionTimer.Reset(0 * time.Millisecond)
 }
 
-func (n *Node) StopElectionTimer() {
+func (n *Node) stopElectionTimer() {
 	if !n.electionTimer.Stop() {
 		select {
 		case <-n.electionTimer.C:
@@ -219,7 +219,7 @@ func (n *Node) StopElectionTimer() {
 	}
 }
 
-func (n *Node) StopHeartbeatTimer() {
+func (n *Node) stopHeartbeatTimer() {
 	if !n.heartbeatTimer.Stop() {
 		select {
 		case <-n.heartbeatTimer.C:
@@ -230,7 +230,7 @@ func (n *Node) StopHeartbeatTimer() {
 
 func (n *Node) nodeDaemon() {
 	/* Timer daemon */
-	n.RestartElectionTimer()
+	n.restartElectionTimer()
 	for n.run {
 		select {
 		case <-n.electionTimer.C:
@@ -262,27 +262,13 @@ func (n *Node) nodeDaemon() {
 	}
 }
 
-func (n *Node) GetLeader() (Peer, error) {
-	/* Get the leader */
-	if n.role == Leader {
-		return Peer{
-			Id:   n.state.id,
-			Addr: n.Addr,
-		}, nil
-	}
-	if n.role == Follower {
-		return *n.getPeer(n.state.votedFor), nil
-	}
-	return Peer{}, errors.New("No leader")
-}
-
 func (n *Node) handleTimeout() {
 	if n.role == Candidate {
 		n.loseElection()
 		return
 	}
 	// follower
-	n.StartElection()
+	n.startElection()
 }
 
 func (n *Node) commitEntries() {
@@ -322,14 +308,6 @@ func (n *Node) getPeer(peerId uint64) *Peer {
 	return &Peer{}
 }
 
-func (n *Node) GetLeaderInfo() (uint64, string) {
-	/* Get leader info */
-	leader, err := n.GetLeader()
-	if err != nil {
-		return 0, ""
-	}
-	return leader.Id, leader.Addr
-}
 
 func (n *Node) addPeerFromLog(logEntry LogEntry) error {
 	/* Add a peer */

@@ -53,7 +53,7 @@ func (n *Node) checkVoteRequest(ballot Ballot) BallotResponse {
 	n.state.currentTerm = ballot.Term
 	n.role = Follower
 	go n.state.save()
-	n.RestartHeartbeatTimer()
+	n.restartHeartbeatTimer()
 	log.Printf("Node %d voted for %d\n", n.state.id, ballot.CandidateId)
 	return BallotResponse{Term: ballot.Term, VoteGranted: true}
 }
@@ -73,9 +73,9 @@ func (n *Node) RecvVoteRequest(ballot Ballot) BallotResponse {
 	return <-n.channels.requestVoteResponseChannel
 }
 
-func (n *Node) StartElection() {
+func (n *Node) startElection() {
 	log.Printf("Node %d starting election\n", n.state.id)
-	n.StopElectionTimer()
+	n.stopElectionTimer()
 	n.state.currentTerm += 1
 	n.electionState.electionTerm = n.state.currentTerm
 	n.electionState.votesReceived = 1
@@ -99,7 +99,7 @@ func (n *Node) StartElection() {
 		go n.requestVote(peer, ballot)
 	}
 	log.Printf("Node %d sent RequestVote rpcs, collecting votes\n", n.state.id)
-	n.RestartElectionTimer()
+	n.restartElectionTimer()
 }
 
 func (n *Node) requestVote(peer Peer, ballot Ballot) {
@@ -137,5 +137,5 @@ func (n *Node) loseElection() {
 	log.Printf("Node %d lost the election\n", n.state.id)
 	n.role = Follower
 	n.state.votedFor = 0
-	n.RestartHeartbeatTimer()
+	n.restartHeartbeatTimer()
 }
