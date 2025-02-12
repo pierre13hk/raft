@@ -152,8 +152,7 @@ func TestCheckJoinClusterRequestAddingPeer(t *testing.T) {
 	*/
 	node := testNode(t)
 	node.role = Follower | AddingPeer
-	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
-	canAddErr := node.checkCanAddPeer(request)
+	canAddErr := node.checkCanAddPeer()
 	if canAddErr == nil {
 		t.Fatalf("expected an error but got nil")
 	}
@@ -165,8 +164,7 @@ func TestCheckJoinClusterRequestNotLeader(t *testing.T) {
 	*/
 	node := testNode(t)
 	node.role = Follower
-	request := JoinClusterRequest{Id: 4, Addr: "localhost:1234", Port: "1234"}
-	canAddErr := node.checkCanAddPeer(request)
+	canAddErr := node.checkCanAddPeer()
 	if canAddErr == nil {
 		t.Fatalf("expected an error but got nil")
 	}

@@ -222,7 +222,7 @@ func (n *Node) write(request ClientRequest) {
 	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
 }
 
-func (n *Node) checkCanAddPeer(request JoinClusterRequest) error {
+func (n *Node) checkCanAddPeer() error {
 	/* Handle an add peer request */
 	if n.role != Leader {
 		log.Printf("Node %d: not the leader, is %v\n", n.state.id, n.role)
@@ -249,7 +249,7 @@ func (n *Node) createAddPeerLogEntry(request JoinClusterRequest) LogEntry {
 }
 
 func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
-	err := n.checkCanAddPeer(request)
+	err := n.checkCanAddPeer()
 	if err != nil {
 		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
 		return

@@ -2,7 +2,6 @@ package raft
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -336,27 +335,27 @@ func (n *Node) GetLeaderInfo() (uint64, string) {
 func (n *Node) addPeerFromLog(logEntry LogEntry) error {
 	/* Add a peer */
 	if logEntry.Type != CLUSTER_CHANGE_ADD {
-		return errors.New("Wrong log type")
+		return errors.New("wrong log type")
 	}
 	peerStrInfo := logEntry.Command
 	peerInfo := strings.Split(string(peerStrInfo), RAFT_COMMAND_DELIMITER)
 	if len(peerInfo) != 3 {
 		log.Println("Error adding peer, want id,ip_addr,port")
-		return errors.New("Error adding peer, want id,ip_addr,port")
+		return errors.New("error adding peer, want id,ip_addr,port")
 	}
 	id, err := strconv.ParseUint(peerInfo[0], 10, 64)
 	if err != nil {
 		log.Println("Error parsing peer id")
-		return errors.New("Error parsing peer id")
+		return errors.New("error parsing peer id")
 	}
 	if ip := net.ParseIP(peerInfo[1]); ip == nil {
 		log.Println("Error parsing peer address", peerInfo[1])
-		return errors.New("Error parsing peer address")
+		return errors.New("error parsing peer address")
 	}
 	port, err := strconv.Atoi(peerInfo[2])
 	if err != nil {
 		log.Println("Error parsing peer port")
-		return errors.New("Error parsing peer port")
+		return errors.New("error parsing peer port")
 	}
 	addr := peerInfo[1] + ":" + strconv.Itoa(port)
 	peer := Peer{
