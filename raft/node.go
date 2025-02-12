@@ -242,20 +242,20 @@ func (n *Node) nodeDaemon() {
 			}
 		case clientRequest := <-n.channels.clientRequestChannel:
 			n.handleClientWriteRequest(clientRequest)
+		case clientReadRequest := <-n.channels.clientReadRequestChannel:
+			n.handleClientReadRequest(clientReadRequest)
 		case ballot := <-n.channels.requestVoteChannel:
 			// when any node receives a vote request
 			n.handleVoteRequest(ballot)
 		case ballotResponse := <-n.channels.electionChannel:
 			// when a candidate collects votes
-			n.HandleVoteRequestResponse(ballotResponse)
+			n.handleVoteRequestResponse(ballotResponse)
 		case appendEntriesRequest := <-n.channels.appendEntriesRequestChannel:
 			// when a node, normally a folower, receives append entries request
 			n.handleRecvAppendEntries(appendEntriesRequest)
-		case JoinClusterRequest := <-n.channels.addPeerChannel:
+		case joinClusterRequest := <-n.channels.addPeerChannel:
 			// when a node receives a request to add a peer
-			n.handleJoinClusterRequest(JoinClusterRequest)
-		case clientReadRequest := <-n.channels.clientReadRequestChannel:
-			n.handleClientReadRequest(clientReadRequest)
+			n.handleJoinClusterRequest(joinClusterRequest)
 		case installSnapshotRequest := <-n.channels.installSnapshotRequestChannel:
 			n.handleInstallSnapshotRequest(installSnapshotRequest)
 		}

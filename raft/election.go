@@ -111,7 +111,7 @@ func (n *Node) requestVote(peer Peer, ballot Ballot) {
 	}
 }
 
-func (n *Node) HandleVoteRequestResponse(ballot BallotResponse) {
+func (n *Node) handleVoteRequestResponse(ballot BallotResponse) {
 	/*
 	 * Run by a candidate to collect votes and determine if it has won the election
 	 */
