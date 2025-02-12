@@ -41,7 +41,7 @@ func (l *InMemoryLogger) Get(index uint64) (LogEntry, error) {
 		return LogEntry{}, errors.New(str)
 	}
 	if index < 0 || index >= uint64(len(l.entries)) {
-		return LogEntry{}, errors.New("No such entry")
+		return LogEntry{}, errors.New("no such entry")
 	}
 	return l.entries[index], nil
 }
@@ -140,7 +140,7 @@ func (r *InMemoryRaftRPC) ForwardToLeaderRPC(peer Peer, req ClientRequest) (Clie
 	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	// Simulate network latency
 	node := r.Peers[peer.Id]
-	return node.RecvClientRequest(req), nil
+	return node.RecvClientWriteRequest(req), nil
 }
 
 func (r *InMemoryRaftRPC) JoinClusterRPC(peer Peer, req JoinClusterRequest) (JoinClusterResponse, error) {
@@ -231,7 +231,7 @@ func (n *DebugNode) Stop() []LogEntry {
 func (n *DebugNode) Apply(command []byte) error {
 	n.Lock()
 	defer n.Unlock()
-	resp := n.Node.RecvClientRequest(ClientRequest{Command: command})
+	resp := n.Node.RecvClientWriteRequest(ClientRequest{Command: command})
 	if resp.Success {
 		return nil
 	} else {

@@ -260,7 +260,7 @@ func (server *RaftRpcImplem) Write(ctx context.Context, request *WriteRequest) (
 	var raftRequest rft.ClientRequest = rft.ClientRequest{
 		Command: []byte(command),
 	}
-	var raftResponse rft.ClientRequestResponse = server.node.RecvClientRequest(raftRequest)
+	var raftResponse rft.ClientRequestResponse = server.node.RecvClientWriteRequest(raftRequest)
 	response := &WriteResponse{
 		Success: raftResponse.Success,
 	}

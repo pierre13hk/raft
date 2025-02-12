@@ -208,18 +208,18 @@ func (n *Node) largestCommittedIndex(p *map[uint64]FollowerReplicationState) uin
 	return matchIndexes[idx]
 }
 
-func (n *Node) write(request ClientRequest) {
+func (n *Node) appendCommandToLogAndReplicate(command []byte) bool {
 	/* Write entries to the log */
 	logEntry := LogEntry{
 		Term:    n.state.currentTerm,
 		Index:   n.state.Logger.LastLogIndex() + 1,
 		Type:    USER_LOG,
-		Command: request.Command,
+		Command: command,
 	}
 
 	n.state.Logger.Append([]LogEntry{logEntry})
 	replicated := n.appendEntries()
-	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
+	return replicated
 }
 
 func (n *Node) checkCanAddPeer() error {

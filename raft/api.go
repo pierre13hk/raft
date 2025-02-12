@@ -20,11 +20,12 @@ type ClientRequestResponse struct {
 	Success bool
 }
 
-func (n *Node) RecvClientRequest(request ClientRequest) ClientRequestResponse {
-	// Only handle one client request at a time
-	n.clientRequestMutex.Lock()
-	defer n.clientRequestMutex.Unlock()
+func (n *Node) handleClientWriteRequest(request ClientRequest) {
+	replicated := n.appendCommandToLogAndReplicate(request.Command)
+	n.channels.clientResponseChannel <- ClientRequestResponse{Success: replicated}
+}
 
+func (n *Node) RecvClientWriteRequest(request ClientRequest) ClientRequestResponse {
 	if n.role != Leader {
 		log.Println("RecvClientRequest: Node ", n.state.id, " is not the leader")
 		return ClientRequestResponse{Success: false}

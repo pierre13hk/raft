@@ -84,7 +84,6 @@ type ElectionState struct {
 	electionTerm  uint64
 }
 
-
 type Node struct {
 	Addr         string
 	state        NodeState
@@ -242,7 +241,7 @@ func (n *Node) nodeDaemon() {
 				n.appendEntries()
 			}
 		case clientRequest := <-n.channels.clientRequestChannel:
-			n.write(clientRequest)
+			n.handleClientWriteRequest(clientRequest)
 		case ballot := <-n.channels.requestVoteChannel:
 			// when any node receives a vote request
 			n.handleVoteRequest(ballot)
@@ -400,7 +399,6 @@ func (n *Node) RecoverStateMachine(fileName string) error {
 	}
 	return nil
 }
-
 
 func (n *Node) saveConfig() error {
 	return nil
