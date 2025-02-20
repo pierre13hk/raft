@@ -8,13 +8,12 @@ import (
 	"time"
 )
 
-type Snapshot struct {}
+type Snapshot struct{}
 
 type SnapshotInfo struct {
 	LastCommitedIndex uint64
 	Date              string
 }
-
 
 func (l *Node) getLastSnapsotFileName() (string, error) {
 	entries, err := os.ReadDir(SNAPSHOT_DIR)
@@ -53,7 +52,6 @@ func (n *Node) createSnapshotsDir() error {
 	}
 	return nil
 }
-
 
 func (n *Node) CreateSnapshot(sm StateMachine, lastCommitedIndex uint64) error {
 	snapshotCount := len(n.snapshotsInfo)
@@ -124,7 +122,6 @@ func (n *Node) RecoverFromSnapshot() error {
 func (n *Node) installSnapshot(snapshot *Snapshot) error {
 	return nil
 }
-
 
 func (n *Node) installSnapshotOnNewPeer(peer Peer) {
 	/* Install a snapshot on a new peer */

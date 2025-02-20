@@ -137,7 +137,7 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 		},
 		role:           Follower,
 		config:         config,
-		StateMachine:   &DebugStateMachine{},
+		StateMachine:   statemachine,
 		RaftRPC:        rpcImplem,
 		rpcStarted:     false,
 		electionTimer:  time.NewTimer(time.Duration(rand.Intn(config.ElectionTimeoutMax)) * time.Millisecond),
@@ -281,7 +281,10 @@ func (n *Node) commitEntries() {
 		}
 		switch logEntry.Type {
 		case USER_LOG:
-			n.StateMachine.Apply(logEntry.Command)
+			applyError := n.StateMachine.Apply(logEntry.Command)
+			if applyError != nil {
+				log.Println("Error applying log entry", applyError)
+			}
 		// Configurations changes
 		case RAFT_LOG:
 			// do nothing
@@ -307,7 +310,6 @@ func (n *Node) getPeer(peerId uint64) *Peer {
 	}
 	return &Peer{}
 }
-
 
 func (n *Node) addPeerFromLog(logEntry LogEntry) error {
 	/* Add a peer */

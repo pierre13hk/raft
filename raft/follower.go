@@ -99,7 +99,6 @@ type InstallSnapshotResponse struct {
 	Success bool
 }
 
-
 func (n *Node) installSnapshotFromRequest(req InstallSnapshotRequest) InstallSnapshotResponse {
 	/*
 		InstallSnapshot RPC
