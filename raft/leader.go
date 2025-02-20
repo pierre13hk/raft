@@ -251,7 +251,7 @@ func (n *Node) createAddPeerLogEntry(request JoinClusterRequest) LogEntry {
 func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 	err := n.checkCanAddPeer()
 	if err != nil {
-		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
+		n.channels.joinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
 		return
 	}
 	log.Printf("Node %d: add peer request %d %s\n", n.state.id, request.Id, request.Addr)
@@ -279,10 +279,10 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 		nextIndex:  n.state.LastLogIndex() + 1,
 		matchIndex: 0,
 	}
-	n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: replicated}
+	n.channels.joinClusterResponseChannel <- JoinClusterResponse{Success: replicated}
 	if err := n.addPeer(peer); err != nil {
 		log.Printf("Node %d: error adding peer %d %s\n", n.state.id, request.Id, request.Addr)
-		n.channels.JoinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
+		n.channels.joinClusterResponseChannel <- JoinClusterResponse{Success: false, Message: err.Error()}
 		return
 	}
 }
@@ -290,5 +290,5 @@ func (n *Node) handleJoinClusterRequest(request JoinClusterRequest) {
 func (n *Node) RecvJoinClusterRequest(request JoinClusterRequest) JoinClusterResponse {
 	/* Receive an add peer request */
 	n.channels.addPeerChannel <- request
-	return <-n.channels.JoinClusterResponseChannel
+	return <-n.channels.joinClusterResponseChannel
 }

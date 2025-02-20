@@ -74,7 +74,7 @@ type NodeChannels struct {
 	appendEntriesRequestChannel    chan AppendEntriesRequest
 	appendEntriesResponseChannel   chan AppendEntriesResponse
 	addPeerChannel                 chan JoinClusterRequest
-	JoinClusterResponseChannel     chan JoinClusterResponse
+	joinClusterResponseChannel     chan JoinClusterResponse
 	clientReadRequestChannel       chan ClientReadRequest
 	clientReadResponseChannel      chan ClientReadResponse
 }
@@ -153,7 +153,7 @@ func NewNode(id uint64, addr string, rpcImplem RaftRPC, statemachine StateMachin
 			appendEntriesRequestChannel:    make(chan AppendEntriesRequest, 1),
 			appendEntriesResponseChannel:   make(chan AppendEntriesResponse, 1),
 			addPeerChannel:                 make(chan JoinClusterRequest, 1),
-			JoinClusterResponseChannel:     make(chan JoinClusterResponse, 1),
+			joinClusterResponseChannel:     make(chan JoinClusterResponse, 1),
 			clientReadRequestChannel:       make(chan ClientReadRequest, 1),
 			clientReadResponseChannel:      make(chan ClientReadResponse, 1),
 		},
