@@ -41,11 +41,7 @@ func (m *MapSM) Apply(command []byte) error {
 }
 
 func (m *MapSM) Read(command []byte) ([]byte, error) {
-	parts, err := m.splitCommand(command)
-	if err != nil {
-		return nil, err
-	}
-	key := parts[1]
+	key := string(command)
 	value, ok := m._map[key]
 	if !ok {
 		return nil, errors.New("key not found")

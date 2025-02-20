@@ -59,13 +59,28 @@ func client(peers []raft.Peer) {
 	requests, _ := strconv.Atoi(os.Getenv("REQUESTS"))
 	sleepTime, _ := strconv.Atoi(os.Getenv("WAIT_BETWEEN_REQUEST_MS"))
 	for i := 0; i < requests; i++ {
-		response, err := client.Write(fmt.Sprintf("command %d", i))
+		command := fmt.Sprintf("set|%d|%d", i, i)
+		response, err := client.Write(command)
 		if err != nil || !response.Success {
 			fmt.Println("Failed to write command, retrying to connect to cluster")
 		}
 		fmt.Println("Successfully wrote command ", response.Success)
 		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 	}
+	for i := 0; i < requests; i++ {
+		command := fmt.Sprintf("%d", i)
+		response, err := client.Read(raft.ClientReadRequest{Command: []byte(command)})
+		if err != nil {
+			fmt.Println("Failed to read command")
+			continue
+		}
+		if response.Success {
+			fmt.Println("Read response: ", string(response.Response))
+		} else {
+			fmt.Println("The state machine returned an error: ", response.Error)
+		}
+	}
+
 	runNodeAfterClient(peers)
 }
 
