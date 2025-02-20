@@ -16,7 +16,7 @@ import (
 func runNodeAfterClient(peers []raft.Peer) {
 	fmt.Println("Running node after client")
 	rpc := getRPC()
-	sm := raft.DebugStateMachine{}
+	sm := NewMapSM()
 	conf := raft.NodeConfig{
 		ElectionTimeoutMin: 600,
 		ElectionTimeoutMax: 1000,
@@ -27,7 +27,7 @@ func runNodeAfterClient(peers []raft.Peer) {
 		uint64(4),
 		addr,
 		rpc,
-		&sm,
+		sm,
 		"/app/conf",
 		conf,
 	)
@@ -121,7 +121,7 @@ func main() {
 	} else {
 
 		rpc := getRPC()
-		sm := raft.DebugStateMachine{}
+		sm := NewMapSM()
 		conf := raft.NodeConfig{
 			ElectionTimeoutMin: 600,
 			ElectionTimeoutMax: 1000,
@@ -131,7 +131,7 @@ func main() {
 			uint64(id),
 			addr,
 			rpc,
-			&sm,
+			sm,
 			"/app/raft/conf",
 			conf,
 		)
