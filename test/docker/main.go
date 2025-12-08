@@ -6,49 +6,24 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	raft "raft.com/raft"
 	rpc "raft.com/raft/grpc"
 	drop "raft.com/simulate/rpc"
 )
 
-func runNodeAfterClient(peers []raft.Peer) {
-	fmt.Println("Running node after client")
-	rpc := getRPC()
-	sm := NewMapSM()
-	conf := raft.NodeConfig{
-		ElectionTimeoutMin: 600,
-		ElectionTimeoutMax: 1000,
-		HeartbeatTimeout:   100,
-	}
-	addr := fmt.Sprintf("0.0.0.0:%d", 9004)
-	node := raft.NewNode(
-		uint64(4),
-		addr,
-		rpc,
-		sm,
-		"/app/conf",
-		conf,
-	)
-	node.Peers = peers
-	peerAddrs := make([]string, len(peers))
-	for i, p := range peers {
-		peerAddrs[i] = p.Addr
-	}
-	joined := node.BootstrapCluster("client", "9004", peerAddrs...)
-	for !joined {
-		joined = node.BootstrapCluster("client", "9004", peerAddrs...)
-		time.Sleep(500 * time.Millisecond)
-	}
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	wg.Wait()
-
+func printUsage() {
+	fmt.Println("Usage: client write <key> <value> or client read <key>")
 }
 
-func client(peers []raft.Peer) {
-	time.Sleep(3 * time.Second)
+func runClient(peers []raft.Peer) {
+	args := os.Args
+	if len(args) < 3 || (args[1] != "write" && args[1] != "read") {
+		fmt.Println("missing args or wrong cmd", args)
+		printUsage()
+		return
+	}
+
 	clusterAddresses := make([]string, len(peers))
 	for i, p := range peers {
 		clusterAddresses[i] = p.Addr
@@ -56,32 +31,24 @@ func client(peers []raft.Peer) {
 	var clientStub raft.RaftClientStub = rpc.NewRaftGrpcClient()
 	client := raft.NewRaftClient(clientStub, peers...)
 
-	requests, _ := strconv.Atoi(os.Getenv("REQUESTS"))
-	sleepTime, _ := strconv.Atoi(os.Getenv("WAIT_BETWEEN_REQUEST_MS"))
-	for i := 0; i < requests; i++ {
-		command := fmt.Sprintf("set|%d|%d", i, i)
-		response, err := client.Write(command)
-		if err != nil || !response.Success {
-			fmt.Println("Failed to write command, retrying to connect to cluster")
-		}
-		fmt.Println("Successfully wrote command ", response.Success)
-		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
-	}
-	for i := 0; i < requests; i++ {
-		command := fmt.Sprintf("%d", i)
-		response, err := client.Read(raft.ClientReadRequest{Command: []byte(command)})
+	if args[1] == "read" {
+		response, err := client.Read(raft.ClientReadRequest{Command: []byte(args[2])})
 		if err != nil {
-			fmt.Println("Failed to read command")
-			continue
-		}
-		if response.Success {
-			fmt.Println("Read response: ", string(response.Response))
+			fmt.Println("Error reading:", err)
 		} else {
-			fmt.Println("The state machine returned an error: ", response.Error)
+			fmt.Println("Response contents", string(response.Response), "Response error", response.Error)
+		}
+	} else {
+		if len(args) != 4 {
+			fmt.Println("missings args for write", args)
+			printUsage()
+			return
+		}
+		_, err := client.Write(fmt.Sprintf("set|%s|%s", args[2], args[3]))
+		if err != nil {
+			fmt.Println("Error writing:", err)
 		}
 	}
-
-	runNodeAfterClient(peers)
 }
 
 func dropRPC(dropRate float32, rpc raft.RaftRPC) raft.RaftRPC {
@@ -131,7 +98,7 @@ func main() {
 
 	isClient := os.Getenv("CLIENT")
 	if isClient == "true" {
-		client(peers)
+		runClient(peers)
 		return
 	} else {
 
@@ -155,7 +122,5 @@ func main() {
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		wg.Wait()
-
 	}
-
 }

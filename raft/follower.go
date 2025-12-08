@@ -67,6 +67,7 @@ func (n *Node) checkAppendEntriesRequest(req AppendEntriesRequest) AppendEntries
 		last_appended_index,
 		req.Entries,
 	)
+	log.Printf("Node %d commit index %d, leader commit %d", n.state.id, n.state.commitIndex, req.LeaderCommit)
 	if n.state.commitIndex < req.LeaderCommit {
 		n.commitEntries()
 	}
