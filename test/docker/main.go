@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	raft "raft.com/raft"
-	rpc "raft.com/raft/grpc"
-	drop "raft.com/simulate/rpc"
+	raft "github.com/pierre13hk/raft/raft"
+	rpc "github.com/pierre13hk/raft/raft/grpc"
+	drop "github.com/pierre13hk/raft/simulate/rpc"
 )
 
 func printUsage() {
