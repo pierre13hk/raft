@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "raft.com.com/raft/grpc";
+option go_package = "github.com/pierre13hk/raft/raft/grpc";
 import "google/protobuf/empty.proto";
 
 // Raft messages and service
