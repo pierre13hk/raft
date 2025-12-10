@@ -36,7 +36,11 @@ func runClient(peers []raft.Peer) {
 		if err != nil {
 			fmt.Println("Error reading:", err)
 		} else {
-			fmt.Println("Response contents", string(response.Response), "Response error", response.Error)
+			fmt.Printf(
+				"Response contents: %s \nError: %s\n",
+				string(response.Response),
+				response.Error,
+			)
 		}
 	} else {
 		if len(args) != 4 {
@@ -82,6 +86,26 @@ func getRPC() raft.RaftRPC {
 	return rpc
 }
 
+func getNodeConf() raft.NodeConfig {
+	electionTimeoutMin, err := strconv.Atoi(os.Getenv("ELECTION_TIMEOUT_MIN"))
+	if err != nil {
+		electionTimeoutMin = 1000 // default or handle error
+	}
+	electionTimeoutMax, err := strconv.Atoi(os.Getenv("ELECTION_TIMEOUT_MAX"))
+	if err != nil {
+		electionTimeoutMax = 2000 // default or handle error
+	}
+	heartbeatTimeout, err := strconv.Atoi(os.Getenv("HEARTBEAT_TIMEOUT_LEADER"))
+	if err != nil {
+		heartbeatTimeout = 200 // default or handle error
+	}
+	return raft.NodeConfig{
+		ElectionTimeoutMin: electionTimeoutMin,
+		ElectionTimeoutMax: electionTimeoutMax,
+		HeartbeatTimeout:   heartbeatTimeout,
+	}
+}
+
 func main() {
 	id, _ := strconv.ParseInt(os.Getenv("ID"), 10, 64)
 	port := os.Getenv("PORT")
@@ -104,11 +128,7 @@ func main() {
 
 		rpc := getRPC()
 		sm := NewMapSM()
-		conf := raft.NodeConfig{
-			ElectionTimeoutMin: 600,
-			ElectionTimeoutMax: 1000,
-			HeartbeatTimeout:   400,
-		}
+		conf := getNodeConf()
 		node := raft.NewNode(
 			uint64(id),
 			addr,
