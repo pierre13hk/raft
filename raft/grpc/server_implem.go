@@ -6,10 +6,10 @@ import (
 	"net"
 	"time"
 
+	rft "github.com/pierre13hk/raft/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	rft "raft.com/raft"
 )
 
 type RaftRpcImplem struct {
@@ -132,7 +132,7 @@ func (server *RaftRpcImplem) InstallSnapshotRPC(peer rft.Peer, req rft.InstallSn
 		return rft.InstallSnapshotResponse{}, err
 	}
 	raftInstallSnapshotResponse := rft.InstallSnapshotResponse{
-		Term: grpcInstallSnapshotResponse.Term,
+		Term:    grpcInstallSnapshotResponse.Term,
 		Success: grpcInstallSnapshotResponse.Success,
 	}
 	return raftInstallSnapshotResponse, nil
@@ -243,7 +243,7 @@ func (server *RaftRpcImplem) InstallSnapshot(ctx context.Context, request *RPCIn
 	}
 	raftInstallSnapshotResponse := server.node.RecvInstallSnapshotRequest(raftInstallSnapshotRequest)
 	grpcInstallSnapshotResponse := &RPCInstallSnapshotResponse{
-		Term: raftInstallSnapshotResponse.Term,
+		Term:    raftInstallSnapshotResponse.Term,
 		Success: raftInstallSnapshotResponse.Success,
 	}
 	return grpcInstallSnapshotResponse, nil

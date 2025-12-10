@@ -5,10 +5,10 @@ import (
 	"log"
 	"time"
 
+	raft "github.com/pierre13hk/raft/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	raft "raft.com/raft"
 )
 
 var TIMEOUT = 1000 * time.Millisecond
@@ -76,4 +76,3 @@ func (client *RaftGrpcClient) Read(peer raft.Peer, request raft.ClientReadReques
 		Error:    grpcResponse.Error,
 	}, nil
 }
-

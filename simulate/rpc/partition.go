@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"time"
 
-	"raft.com/raft"
+	"github.com/pierre13hk/raft/raft"
 )
 
 var ErrPartitionRPC = errors.New("node is partitioned")

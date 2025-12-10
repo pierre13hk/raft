@@ -1,4 +1,4 @@
-module raft.com/raft
+module github.com/pierre13hk/raft/raft
 
 go 1.22.0
 

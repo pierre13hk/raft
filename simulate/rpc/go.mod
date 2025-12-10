@@ -1,7 +1,5 @@
-module raft.com/simulate/rpc
+module github.com/pierre13hk/raft/simulate/rpc
 
-replace raft.com/raft => ../../raft
 
 go 1.22.0
 
-require raft.com/raft v0.0.0-00010101000000-000000000000

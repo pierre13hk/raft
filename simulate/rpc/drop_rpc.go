@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"raft.com/raft"
+	"github.com/pierre13hk/raft/raft"
 )
 
 var ErrDropRPC = errors.New("RPC dropped")
