@@ -1,37 +1,45 @@
+x-election-heartbeat-env: &election_heartbeat_env
+  ELECTION_TIMEOUT_MIN: 1000
+  ELECTION_TIMEOUT_MAX: 2000
+  HEARTBEAT_TIMEOUT_LEADER: 200
+
 services:
   node1:
     build: .
     ports:
       - "9001:9001"
     environment:
-      - ID=1
-      - PORT=9001
-      - PEERS=2|node2:9002,3|node3:9003
-      - DROP_RATE=0.3
-      - PARTITION_INTERVAL_MS=2000
-      - PARTITION_OUTAGE_MS=200
+      <<: *election_heartbeat_env
+      ID: 1
+      PORT: 9001
+      PEERS: 2|node2:9002,3|node3:9003
+      DROP_RATE: 0.3
+      PARTITION_INTERVAL_MS: 2000
+      PARTITION_OUTAGE_MS: 200
   node2:
     build: .
     ports:
       - "9002:9002"
     environment:
-      - ID=2
-      - PORT=9002
-      - PEERS=1|node1:9001,3|node3:9003
-      - DROP_RATE=0.3
-      - PARTITION_INTERVAL_MS=2000
-      - PARTITION_OUTAGE_MS=200
+      <<: *election_heartbeat_env
+      ID: 2
+      PORT: 9002
+      PEERS: 1|node1:9001,3|node3:9003
+      DROP_RATE: 0.3
+      PARTITION_INTERVAL_MS: 2000
+      PARTITION_OUTAGE_MS: 200
   node3:
     build: .
     ports:
       - "9003:9003"
     environment:
-      - ID=3
-      - PORT=9003
-      - PEERS=1|node1:9001,2|node2:9002
-      - DROP_RATE=0.3
-      - PARTITION_INTERVAL_MS=2000
-      - PARTITION_OUTAGE_MS=200
+      <<: *election_heartbeat_env
+      ID: 3
+      PORT: 9003
+      PEERS: 1|node1:9001,2|node2:9002
+      DROP_RATE: 0.3
+      PARTITION_INTERVAL_MS: 2000
+      PARTITION_OUTAGE_MS: 200
   client:
     container_name: raft-client
     build: .
@@ -42,4 +50,4 @@ services:
       - CLIENT=true
       - REQUESTS=33
       - WAIT_BETWEEN_REQUEST_MS=200
-    command: "tail -f main.go"
+    command: "tail -f /app/raftbin"

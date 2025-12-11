@@ -36,11 +36,11 @@ func runClient(peers []raft.Peer) {
 		if err != nil {
 			fmt.Println("Error reading:", err)
 		} else {
-			fmt.Printf(
-				"Response contents: %s \nError: %s\n",
-				string(response.Response),
-				response.Error,
-			)
+			if len(response.Error) > 0 || !response.Success {
+				fmt.Println("Error reading:", response.Error)
+			} else {
+				fmt.Printf("Response: %s\n", response.Response)
+			}
 		}
 	} else {
 		if len(args) != 4 {

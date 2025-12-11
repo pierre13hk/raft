@@ -1,24 +1,37 @@
 # raft
-A raft implementation to understand the famous consensus algorithm and learn Go.
+A raft implementation to learn the famous consensus algorithm and Go.
 
 It is an incomplete implementation and contains many anti-patterns as this was personal learning project.
 
 # implementation
+## tools / api
 - gRPC is used for node to node communication, but can be replaced by any object implementing the RaftRPC interface in rpc.go
 - any state machine can be passed to a raft node as long as it implements the interface
   defined in state_machine.go for applying, serializing, deserializing, and reading state machine commands
 
-# give it a try
-A demo / example is available under demo/.
+## what works and what doesn't
+Leader election and log replication are implemented.
+Snapshotting and membership changes are not stable enough to be considered implemented.
+
+# try it out
+A demo is available under demo/.
 The demo gives an example of a simple key/value state machine and where network failures can be simulated.
 
 ## simulating network failures
-Two types of network failures are simulated: packet loss and partitions.
+Two types of network failures are simulated: packet loss and partitions.  
 To configure packet loss, you can modify the `DROP_RATE` environment variable in the docker compose.
 At every packet send / RPC, if a random number between 0 and 1 is less than the defined `DROP_RATE`, an error is returned to the sender / caller.
 To configure network partions, two environment variables can be used:
 - `PARTITION_INTERVAL_MS`: the next partiton will be scheduled at random time in miliseconds between 0 and `PARTITION_INTERVAL_MS`.
 - `PARTITION_OUTAGE_MS`: the maximum time to partion a node and make all its RPCs fail
+
+## other configurations
+The following raft related configurations are also available through environment variables in the docker compose.
+- `ELECTION_TIMEOUT_MIN`: the number of miliseconds after which a follower becomes a candidate after
+  not receiving heartbeats from the leader
+- `ELECTION_TIMEOUT_MAX`: when starting an election, a candidate will wait at most ELECTION_TIMEOUT_MAX miliseconds before losing a term
+- `HEARTBEAT_TIMEOUT_LEADER`: the number of miliseconds after which a leader sends heartbeats.
+For a leader to be elected, `HEARTBEAT_TIMEOUT_LEADER` should be smaller than `ELECTION_TIMEOUT_MIN`
 
 ## communicating with the raft cluster and sending state machine commands
 The docker compose defines 3 raft nodes and a container that can be used as client.
